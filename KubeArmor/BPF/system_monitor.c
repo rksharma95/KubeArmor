@@ -61,6 +61,7 @@
 #define SOCK_DOM_T    15UL
 #define SOCK_TYPE_T   16UL
 #define FILE_TYPE_T   17UL
+#define UNLINKAT_FLAG_T 19UL
 
 #define MAX_ARGS               6
 #define ENC_ARG_TYPE(n, type)  type<<(8*n)
@@ -77,6 +78,8 @@ enum {
     _SYS_OPEN = 2,
     _SYS_OPENAT = 257,
     _SYS_CLOSE = 3,
+    _SYS_UNLINK = 87,
+    _SYS_UNLINKAT = 263,
 
     // network
     _SYS_SOCKET = 41,
@@ -630,6 +633,9 @@ static __always_inline int save_args_to_buffer(u64 types, args_t *args)
         case OPEN_FLAGS_T:
             save_to_buffer(bufs_p, (void*)&(args->args[i]), sizeof(int), OPEN_FLAGS_T);
             break;
+        case UNLINKAT_FLAG_T:
+            save_to_buffer(bufs_p, (void*)&(args->args[i]), sizeof(int), UNLINKAT_FLAG_T);
+            break;
         case FILE_TYPE_T:
             save_file_to_buffer(bufs_p, (void *)args->args[i]);
             break;
@@ -1029,6 +1035,32 @@ int syscall__openat(struct pt_regs *ctx)
 int trace_ret_openat(struct pt_regs *ctx)
 {
     return trace_ret_generic(_SYS_OPENAT, ctx, ARG_TYPE0(INT_T)|ARG_TYPE1(FILE_TYPE_T)|ARG_TYPE2(OPEN_FLAGS_T));
+}
+
+int syscall__unlink(struct pt_regs *ctx)
+{
+    if (skip_syscall())
+        return 0;
+
+    return save_args(_SYS_UNLINK, ctx);
+}
+
+int trace_ret_unlink(struct pt_regs *ctx)
+{
+    return trace_ret_generic(_SYS_UNLINK, ctx, ARG_TYPE0(INT_T)|ARG_TYPE1(FILE_TYPE_T));
+}
+
+int syscall__unlinkat(struct pt_regs *ctx)
+{
+    if (skip_syscall())
+        return 0;
+
+    return save_args(_SYS_UNLINKAT, ctx);
+}
+
+int trace_ret_unlinkat(struct pt_regs *ctx)
+{
+    return trace_ret_generic(_SYS_UNLINKAT, ctx, ARG_TYPE0(INT_T)|ARG_TYPE1(FILE_TYPE_T)|ARG_TYPE2(UNLINKAT_FLAG_T));
 }
 
 int syscall__close(struct pt_regs *ctx)

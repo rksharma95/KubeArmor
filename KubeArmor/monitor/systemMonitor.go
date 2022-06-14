@@ -30,9 +30,11 @@ import (
 
 // System Call Numbers
 const (
-	SysOpen   = 2
-	SysOpenAt = 257
-	SysClose  = 3
+	SysOpen     = 2
+	SysOpenAt   = 257
+	SysClose    = 3
+	SysUnlink   = 87
+	SysUnlinkAt = 263
 
 	SysSocket  = 41
 	SysConnect = 42
@@ -257,7 +259,7 @@ func (mon *SystemMonitor) InitBPF() error {
 	mon.Logger.Print("Initialized the eBPF program")
 
 	sysPrefix := bcc.GetSyscallPrefix()
-	systemCalls := []string{"open", "openat", "execve", "execveat", "socket", "connect", "accept", "bind", "listen"}
+	systemCalls := []string{"open", "openat", "execve", "execveat", "socket", "connect", "accept", "bind", "listen", "unlink", "unlinkat"}
 
 	if mon.BpfModule != nil {
 		for _, syscallName := range systemCalls {
@@ -401,6 +403,14 @@ func (mon *SystemMonitor) TraceSyscall() {
 					continue
 				}
 			} else if ctx.EventID == SysOpenAt {
+				if len(args) != 3 {
+					continue
+				}
+			} else if ctx.EventID == SysUnlink {
+				if len(args) != 1 {
+					continue
+				}
+			} else if ctx.EventID == SysUnlinkAt {
 				if len(args) != 3 {
 					continue
 				}
