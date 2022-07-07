@@ -19,7 +19,7 @@ RUN make
 
 ### Make executable image
 
-FROM alpine:3.15
+FROM alpine:3.16
 
 RUN apk --no-cache update
 RUN echo "@community http://dl-cdn.alpinelinux.org/alpine/edge/community" | tee -a /etc/apk/repositories
