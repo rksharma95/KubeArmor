@@ -171,6 +171,16 @@ func (dm *KubeArmorDaemon) DestroyKubeArmorDaemon() {
 	// wait for other routines
 	kg.Print("Waiting for routine terminations")
 	dm.WgDaemon.Wait()
+
+	// delete pid file
+	if _, err := os.Stat(cfg.PIDFilePath); err == nil {
+		kg.Print("Deleting PID file")
+
+		err := os.Remove(cfg.PIDFilePath)
+		if err != nil {
+			kg.Errf("Failed to delete PID file")
+		}
+	}
 }
 
 // ============ //
@@ -439,62 +449,103 @@ func KubeArmor() {
 	// == //
 
 	if dm.K8sEnabled && cfg.GlobalCfg.Policy {
-		if strings.HasPrefix(dm.Node.ContainerRuntimeVersion, "docker") {
-			sockFile := false
+		// check if the CRI socket set while executing kubearmor exists
+		if cfg.GlobalCfg.CRISocket != "" {
+			trimmedSocket := strings.TrimPrefix(cfg.GlobalCfg.CRISocket, "unix://")
+			if _, err := os.Stat(trimmedSocket); err != nil {
+				dm.Logger.Warnf("Error while looking for CRI socket file: %s", err.Error())
 
-			for _, candidate := range []string{"/var/run/docker.sock"} {
-				if _, err := os.Stat(candidate); err == nil {
-					sockFile = true
-					break
-				}
+				// destroy the daemon
+				dm.DestroyKubeArmorDaemon()
+				return
 			}
 
-			if sockFile {
+			// monitor containers
+			if strings.Contains(dm.Node.ContainerRuntimeVersion, "docker") {
 				// update already deployed containers
 				dm.GetAlreadyDeployedDockerContainers()
-
 				// monitor docker events
 				go dm.MonitorDockerEvents()
+			} else if strings.Contains(dm.Node.ContainerRuntimeVersion, "containerd") {
+				// monitor containerd events
+				go dm.MonitorContainerdEvents()
+			} else if strings.Contains(dm.Node.ContainerRuntimeVersion, "crio") {
+				// monitor crio events
+				go dm.MonitorCrioEvents()
 			} else {
-				for _, candidate := range []string{"/var/run/containerd/containerd.sock"} {
-					if _, err := os.Stat(candidate); err == nil {
-						sockFile = true
-						break
+				dm.Logger.Errf("Failed to monitor containers: %s is not a supported CRI socket.", cfg.GlobalCfg.CRISocket)
+				// destroy the daemon
+				dm.DestroyKubeArmorDaemon()
+				return
+			}
+
+			dm.Logger.Printf("Using %s for monitoring containers.", cfg.GlobalCfg.CRISocket)
+
+		} else { // CRI socket not set, we'll have to auto detect
+			dm.Logger.Print("CRI socket not set. Trying to detect.")
+
+			if strings.HasPrefix(dm.Node.ContainerRuntimeVersion, "docker") {
+				socketFile := kl.GetCRISocket("docker")
+
+				if socketFile != "" {
+					cfg.GlobalCfg.CRISocket = "unix://" + socketFile
+
+					// update already deployed containers
+					dm.GetAlreadyDeployedDockerContainers()
+
+					// monitor docker events
+					go dm.MonitorDockerEvents()
+				} else {
+					// we might have to use containerd's socket as docker's socket is not
+					// available
+					socketFile := kl.GetCRISocket("containerd")
+
+					if socketFile != "" {
+						cfg.GlobalCfg.CRISocket = "unix://" + socketFile
+
+						// monitor containerd events
+						go dm.MonitorContainerdEvents()
+					} else {
+						dm.Logger.Err("Failed to monitor containers (Docker socket file is not accessible)")
+
+						// destroy the daemon
+						dm.DestroyKubeArmorDaemon()
+
+						return
 					}
 				}
+			} else if strings.HasPrefix(dm.Node.ContainerRuntimeVersion, "containerd") { // containerd
+				socketFile := kl.GetCRISocket("containerd")
 
-				if sockFile {
+				if socketFile != "" {
+					cfg.GlobalCfg.CRISocket = "unix://" + socketFile
+
 					// monitor containerd events
 					go dm.MonitorContainerdEvents()
 				} else {
-					dm.Logger.Err("Failed to monitor containers (Docker socket file is not accessible)")
+					dm.Logger.Err("Failed to monitor containers (Containerd socket file is not accessible)")
 
 					// destroy the daemon
 					dm.DestroyKubeArmorDaemon()
 
 					return
 				}
-			}
-		} else { // containerd
-			sockFile := false
+			} else if strings.HasPrefix(dm.Node.ContainerRuntimeVersion, "cri-o") { // cri-o
+				socketFile := kl.GetCRISocket("crio")
 
-			for _, candidate := range []string{"/var/run/containerd/containerd.sock", "/var/snap/microk8s/common/run/containerd.sock", "/run/k3s/containerd/containerd.sock"} {
-				if _, err := os.Stat(candidate); err == nil {
-					sockFile = true
-					break
+				if socketFile != "" {
+					cfg.GlobalCfg.CRISocket = "unix://" + socketFile
+
+					// monitor cri-o events
+					go dm.MonitorCrioEvents()
+				} else {
+					dm.Logger.Err("Failed to monitor containers (CRI-O socket file is not accessible)")
+
+					// destroy the daemon
+					dm.DestroyKubeArmorDaemon()
+
+					return
 				}
-			}
-
-			if sockFile {
-				// monitor containerd events
-				go dm.MonitorContainerdEvents()
-			} else {
-				dm.Logger.Err("Failed to monitor containers (Containerd socket file is not accessible)")
-
-				// destroy the daemon
-				dm.DestroyKubeArmorDaemon()
-
-				return
 			}
 		}
 	}
@@ -529,6 +580,7 @@ func KubeArmor() {
 	if !cfg.GlobalCfg.K8sEnv && cfg.GlobalCfg.HostPolicy {
 		policyService := &policy.ServiceServer{}
 		policyService.UpdateHostPolicy = dm.ParseAndUpdateHostSecurityPolicy
+		dm.Node.PolicyEnabled = tp.KubeArmorPolicyEnabled
 
 		pb.RegisterPolicyServiceServer(dm.Logger.LogServer, policyService)
 		reflection.Register(dm.Logger.LogServer)

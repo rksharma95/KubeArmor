@@ -18,18 +18,18 @@ on:
 
 jobs:
   build:
-    name: Auto-testing Framework / ${{ matrix.os }}
+    name: Auto-testing Framework / ${{ matrix.os }} / ${{ matrix.runtime }}
     runs-on: ${{ matrix.os }}
+    env:
+      RUNTIME: ${{ matrix.runtime }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, ubuntu-18.04]
+        runtime: ["docker", "containerd", "crio"]
     steps:
       - name: Kernel version
         run: uname -r
-
-      - name: Check Docker Version
-        run: docker --version
 
       - uses: actions/checkout@v2
 
@@ -54,7 +54,22 @@ jobs:
 
       - name: Setup Enviroment
         run: |
+          echo "RUNTIME="$RUNTIME
+          if [ "$RUNTIME" == "docker" ]; then
+            ./contribution/self-managed-k8s/docker/install_docker.sh
+            docker --version
+          elif [ "$RUNTIME" == "crio" ]; then
+            ./contribution/self-managed-k8s/crio/install_crio.sh
+            crio --version
+          fi
           ./contribution/k3s/install_k3s.sh
+
+      - name: Install annotation controller
+        run: |
+          kubectl apply -f deployments/annotations/cert-manager.yaml
+          kubectl wait pods --for=condition=ready -n cert-manager -l app.kubernetes.io/instance=cert-manager
+          kubectl apply -f deployments/annotations/kubearmor-annotation-manager.yaml
+          kubectl wait pods --for=condition=ready -n kube-system -l kubearmor-app=kubearmor-annotation-manager
 
       - name: Run kubectl proxy
         run: kubectl proxy &
