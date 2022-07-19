@@ -295,7 +295,7 @@ func (mon *SystemMonitor) InitBPF() error {
 			}
 		}
 
-		sysKprobes := []string{"do_exit", "security_bprm_check", "security_file_open", "security_path_unlink"}
+		sysKprobes := []string{"do_exit", "security_bprm_check", "security_file_open"}
 
 		for _, sysKprobe := range sysKprobes {
 			kp, err := mon.BpfModule.LoadKprobe(fmt.Sprintf("trace_%s", sysKprobe))
@@ -407,7 +407,7 @@ func (mon *SystemMonitor) TraceSyscall() {
 					continue
 				}
 			} else if ctx.EventID == SysUnlink {
-				if len(args) != 2 {
+				if len(args) != 1 {
 					continue
 				}
 			} else if ctx.EventID == SysUnlinkAt {

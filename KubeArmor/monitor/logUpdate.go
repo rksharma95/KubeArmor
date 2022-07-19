@@ -177,12 +177,12 @@ func (mon *SystemMonitor) UpdateLogs() {
 				log.Data = "syscall=" + getSyscallName(int32(msg.ContextSys.EventID)) + " fd=" + fd + " flags=" + fileOpenFlags
 
 			case SysUnlink:
-				if len(msg.ContextArgs) != 2 {
+				if len(msg.ContextArgs) != 1 {
 					continue
 				}
 
 				var fileName string
-				if val, ok := msg.ContextArgs[1].(string); ok {
+				if val, ok := msg.ContextArgs[0].(string); ok {
 					fileName = val
 				}
 				log.Operation = "File"

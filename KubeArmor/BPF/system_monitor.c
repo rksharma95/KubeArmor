@@ -691,20 +691,6 @@ static __always_inline int events_perf_submit(struct pt_regs *ctx)
 
 // == Full Path == //
 
-int trace_security_path_unlink(struct pt_regs *ctx, const struct path *dir, struct dentry *dentry){
-    if (skip_syscall())
-		return 0;
-	struct path p;
-    
-    p.dentry = dentry;
-    p.mnt = dir->mnt;
-	
-    u64	tgid = bpf_get_current_pid_tgid();
-	file_map.update(&tgid, &p);
-
-    return 0;
-}
-
 int trace_security_bprm_check(struct pt_regs *ctx, struct linux_binprm *bprm)
 {
     sys_context_t context = {};
@@ -995,7 +981,7 @@ static __always_inline int trace_ret_generic(u32 id, struct pt_regs *ctx, u64 ty
 
     if (load_args(id, &args) != 0)
         return 0;
-    
+
     if (skip_syscall())
         return 0;
 
