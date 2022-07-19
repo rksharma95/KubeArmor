@@ -10,7 +10,7 @@ Check the [KubeArmor support matrix](support_matrix.md) to verify if your platfo
 
 ### 1. Download and install karmor cli-tool
 ```
-curl -sfL https://raw.githubusercontent.com/kubearmor/kubearmor-client/main/install.sh | sudo sh -s -- -b /usr/local/bin
+curl -sfL http://get.kubearmor.io/ | sudo sh -s -- -b /usr/local/bin
 ```
 
 ### 2. Install KubeArmor
@@ -101,4 +101,3 @@ karmor log
 3. [Minikube](../contribution/minikube)
 4. [Self-managed K8s](../contribution/self-managed-k8s)
 5. [Amazon Elastic Kubernetes Service (EKS)](../deployments/EKS#prerequisite-for-the-deployment)
-

@@ -22,6 +22,7 @@ type KubearmorConfig struct {
 	GRPC              string // gRPC Port to use
 	LogPath           string // Log file to use
 	SELinuxProfileDir string // Directory to store SELinux profiles
+	CRISocket         string // Container runtime to use
 
 	Visibility     string // Container visibility to use
 	HostVisibility string // Host visibility to use
@@ -45,6 +46,9 @@ type KubearmorConfig struct {
 // PolicyDir policy dir path for host policies backup
 const PolicyDir string = "/opt/kubearmor/policies/"
 
+// PIDFilePath for pid file path
+const PIDFilePath string = "/opt/kubearmor/kubearmor.pid"
+
 // GlobalCfg Global configuration for Kubearmor
 var GlobalCfg KubearmorConfig
 
@@ -62,6 +66,9 @@ const ConfigLogPath string = "logPath"
 
 // ConfigSELinuxProfileDir SELinux Profile Directory key
 const ConfigSELinuxProfileDir string = "seLinuxProfileDir"
+
+// ConfigCRISocket key
+const ConfigCRISocket string = "criSocket"
 
 // ConfigVisibility Container visibility key
 const ConfigVisibility string = "visibility"
@@ -110,6 +117,7 @@ func readCmdLineParams() {
 	grpcStr := flag.String(ConfigGRPC, "32767", "gRPC port number")
 	logStr := flag.String(ConfigLogPath, "/tmp/kubearmor.log", "log file path, {path|stdout|none}")
 	seLinuxProfileDirStr := flag.String(ConfigSELinuxProfileDir, "/tmp/kubearmor.selinux", "SELinux profile directory")
+	criSocket := flag.String(ConfigCRISocket, "", "path to CRI socket (format: unix:///path/to/file.sock)")
 
 	visStr := flag.String(ConfigVisibility, "process,file,network,capabilities", "Container Visibility to use [process,file,network,capabilities,none]")
 	hostVisStr := flag.String(ConfigHostVisibility, "default", "Host Visibility to use [process,file,network,capabilities,none] (default \"none\" for k8s, \"process,file,network,capabilities\" for VM)")
@@ -144,6 +152,7 @@ func readCmdLineParams() {
 	viper.SetDefault(ConfigGRPC, *grpcStr)
 	viper.SetDefault(ConfigLogPath, *logStr)
 	viper.SetDefault(ConfigSELinuxProfileDir, *seLinuxProfileDirStr)
+	viper.SetDefault(ConfigCRISocket, *criSocket)
 
 	viper.SetDefault(ConfigVisibility, *visStr)
 	viper.SetDefault(ConfigHostVisibility, *hostVisStr)
@@ -193,6 +202,15 @@ func LoadConfig() error {
 	GlobalCfg.GRPC = viper.GetString(ConfigGRPC)
 	GlobalCfg.LogPath = viper.GetString(ConfigLogPath)
 	GlobalCfg.SELinuxProfileDir = viper.GetString(ConfigSELinuxProfileDir)
+
+	GlobalCfg.CRISocket = os.Getenv("CRI_SOCKET")
+	if GlobalCfg.CRISocket == "" {
+		GlobalCfg.CRISocket = viper.GetString(ConfigCRISocket)
+	}
+
+	if GlobalCfg.CRISocket != "" && !strings.HasPrefix(GlobalCfg.CRISocket, "unix://") {
+		return fmt.Errorf("CRI socket must start with 'unix://' (%s is invalid)", GlobalCfg.CRISocket)
+	}
 
 	GlobalCfg.Visibility = viper.GetString(ConfigVisibility)
 	GlobalCfg.HostVisibility = viper.GetString(ConfigHostVisibility)
