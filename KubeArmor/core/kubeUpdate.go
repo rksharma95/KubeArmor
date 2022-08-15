@@ -2220,3 +2220,33 @@ func (dm *KubeArmorDaemon) WatchDefaultPosture() {
 		}
 	}
 }
+
+// WatchConfigMap function
+func (dm *KubeArmorDaemon) WatchConfigMap(namespace string, configMapName string) {
+	ns, err := K8s.K8sClient.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
+	if err != nil {
+		kg.Err("unable to fetch requested namespace")
+	}
+
+	cmWatcher, err := K8s.K8sClient.CoreV1().ConfigMaps(namespace).Watch(context.TODO(), metav1.SingleObject(metav1.ObjectMeta{
+		Name:      configMapName,
+		Namespace: namespace,
+	}))
+	defer cmWatcher.Stop()
+	if err != nil {
+		kg.Err("unable to create config map watcher")
+	}
+	for resp := range cmWatcher.ResultChan() {
+		if resp.Type == watch.Modified || resp.Type == watch.Added {
+			if cm, ok := resp.Object.(*corev1.ConfigMap); ok {
+				defaultPosture := tp.DefaultPosture{
+					FileAction:         validateDefaultPosture("kubearmor-file-posture", ns, cm.Data[""]),
+					NetworkAction:      validateDefaultPosture("kubearmor-network-posture", ns, cm.Data[""]),
+					CapabilitiesAction: validateDefaultPosture("kubearmor-capabilities-posture", ns, cm.Data[""]),
+				}
+				dm.UpdateDefaultPosture(string(resp.Type), ns.Name, defaultPosture)
+			}
+		}
+	}
+
+}
