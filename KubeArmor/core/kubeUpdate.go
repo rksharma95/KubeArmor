@@ -2240,9 +2240,9 @@ func (dm *KubeArmorDaemon) WatchConfigMap(namespace string, configMapName string
 		if resp.Type == watch.Modified || resp.Type == watch.Added {
 			if cm, ok := resp.Object.(*corev1.ConfigMap); ok {
 				defaultPosture := tp.DefaultPosture{
-					FileAction:         validateDefaultPosture("kubearmor-file-posture", ns, cm.Data[""]),
-					NetworkAction:      validateDefaultPosture("kubearmor-network-posture", ns, cm.Data[""]),
-					CapabilitiesAction: validateDefaultPosture("kubearmor-capabilities-posture", ns, cm.Data[""]),
+					FileAction:         validateDefaultPosture("kubearmor-file-posture", ns, cm.Data["defaultfileposture"]),
+					NetworkAction:      validateDefaultPosture("kubearmor-network-posture", ns, cm.Data["defaultnetworkposture"]),
+					CapabilitiesAction: validateDefaultPosture("kubearmor-capabilities-posture", ns, cm.Data["defaultcapabilitiesposture"]),
 				}
 				dm.UpdateDefaultPosture(string(resp.Type), ns.Name, defaultPosture)
 			}
