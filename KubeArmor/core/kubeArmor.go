@@ -53,8 +53,8 @@ type KubeArmorDaemon struct {
 	// containers (from docker)
 	Containers     map[string]tp.Container
 	ContainersLock *sync.RWMutex
-	// config map 
-	ConfigMapLock  *sync.RWMutex 
+	// config map
+	ConfigMapLock *sync.RWMutex
 	// endpoints
 	EndPoints     []tp.EndPoint
 	EndPointsLock *sync.RWMutex
@@ -104,7 +104,7 @@ func NewKubeArmorDaemon() *KubeArmorDaemon {
 
 	dm.Containers = map[string]tp.Container{}
 	dm.ContainersLock = new(sync.RWMutex)
-	dm.ConfigMapLock = new(sync.RWMutex) 
+	dm.ConfigMapLock = new(sync.RWMutex)
 	dm.EndPoints = []tp.EndPoint{}
 	dm.EndPointsLock = new(sync.RWMutex)
 
