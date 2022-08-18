@@ -1,0 +1,21 @@
+syntax = "proto3"; 
+
+package config; 
+
+option go_package="github.com/kubearmor/KubeArmor/protobuf";
+
+
+
+message status {
+    int32 status = 1; 
+}
+
+message kubeArmorConfig {
+    bytes data = 1; 
+} 
+
+service ConfigService {
+    rpc updateDefaultPosture(kubeArmorConfig) returns (status); 
+}
+
+ 
