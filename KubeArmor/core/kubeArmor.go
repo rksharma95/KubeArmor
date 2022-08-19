@@ -7,7 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"sync"	
+	"sync"
 	"syscall"
 	"time"
 
@@ -252,7 +252,7 @@ func (dm *KubeArmorDaemon) CloseSystemMonitor() bool {
 // ====================== //
 // == Runtime Enforcer == //
 // ====================== //
-q
+
 // InitRuntimeEnforcer Function
 func (dm *KubeArmorDaemon) InitRuntimeEnforcer() bool {
 	dm.RuntimeEnforcer = efc.NewRuntimeEnforcer(dm.Node, dm.Logger)
