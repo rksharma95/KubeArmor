@@ -2245,6 +2245,7 @@ func (dm *KubeArmorDaemon) WatchConfigMap(namespace string, configMapName string
 					CapabilitiesAction: validateDefaultPosture("kubearmor-capabilities-posture", ns, cm.Data["defaultcapabilitiesposture"]),
 				}
 				dm.UpdateDefaultPosture(string(resp.Type), ns.Name, defaultPosture)
+
 			}
 		}
 	}
