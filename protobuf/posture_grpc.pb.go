@@ -22,7 +22,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type PostureServiceClient interface {
-	UpdateDefaultPosture(ctx context.Context, in *KubeArmorConfig, opts ...grpc.CallOption) (*Status, error)
+	UpdateDefaultPosture(ctx context.Context, in *KubeArmorConfig, opts ...grpc.CallOption) (*Result, error)
 }
 
 type postureServiceClient struct {
@@ -33,8 +33,8 @@ func NewPostureServiceClient(cc grpc.ClientConnInterface) PostureServiceClient {
 	return &postureServiceClient{cc}
 }
 
-func (c *postureServiceClient) UpdateDefaultPosture(ctx context.Context, in *KubeArmorConfig, opts ...grpc.CallOption) (*Status, error) {
-	out := new(Status)
+func (c *postureServiceClient) UpdateDefaultPosture(ctx context.Context, in *KubeArmorConfig, opts ...grpc.CallOption) (*Result, error) {
+	out := new(Result)
 	err := c.cc.Invoke(ctx, "/posture.PostureService/updateDefaultPosture", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -46,14 +46,14 @@ func (c *postureServiceClient) UpdateDefaultPosture(ctx context.Context, in *Kub
 // All implementations should embed UnimplementedPostureServiceServer
 // for forward compatibility
 type PostureServiceServer interface {
-	UpdateDefaultPosture(context.Context, *KubeArmorConfig) (*Status, error)
+	UpdateDefaultPosture(context.Context, *KubeArmorConfig) (*Result, error)
 }
 
 // UnimplementedPostureServiceServer should be embedded to have forward compatible implementations.
 type UnimplementedPostureServiceServer struct {
 }
 
-func (UnimplementedPostureServiceServer) UpdateDefaultPosture(context.Context, *KubeArmorConfig) (*Status, error) {
+func (UnimplementedPostureServiceServer) UpdateDefaultPosture(context.Context, *KubeArmorConfig) (*Result, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateDefaultPosture not implemented")
 }
 
