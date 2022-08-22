@@ -22,7 +22,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type PostureServiceClient interface {
-	UpdateDefaultPosture(ctx context.Context, in *KubeArmorConfig, opts ...grpc.CallOption) (*Result, error)
+	UpdateDefaultPosture(ctx context.Context, in *Posture, opts ...grpc.CallOption) (*Result, error)
 }
 
 type postureServiceClient struct {
@@ -33,7 +33,7 @@ func NewPostureServiceClient(cc grpc.ClientConnInterface) PostureServiceClient {
 	return &postureServiceClient{cc}
 }
 
-func (c *postureServiceClient) UpdateDefaultPosture(ctx context.Context, in *KubeArmorConfig, opts ...grpc.CallOption) (*Result, error) {
+func (c *postureServiceClient) UpdateDefaultPosture(ctx context.Context, in *Posture, opts ...grpc.CallOption) (*Result, error) {
 	out := new(Result)
 	err := c.cc.Invoke(ctx, "/posture.PostureService/updateDefaultPosture", in, out, opts...)
 	if err != nil {
@@ -46,14 +46,14 @@ func (c *postureServiceClient) UpdateDefaultPosture(ctx context.Context, in *Kub
 // All implementations should embed UnimplementedPostureServiceServer
 // for forward compatibility
 type PostureServiceServer interface {
-	UpdateDefaultPosture(context.Context, *KubeArmorConfig) (*Result, error)
+	UpdateDefaultPosture(context.Context, *Posture) (*Result, error)
 }
 
 // UnimplementedPostureServiceServer should be embedded to have forward compatible implementations.
 type UnimplementedPostureServiceServer struct {
 }
 
-func (UnimplementedPostureServiceServer) UpdateDefaultPosture(context.Context, *KubeArmorConfig) (*Result, error) {
+func (UnimplementedPostureServiceServer) UpdateDefaultPosture(context.Context, *Posture) (*Result, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateDefaultPosture not implemented")
 }
 
@@ -69,7 +69,7 @@ func RegisterPostureServiceServer(s grpc.ServiceRegistrar, srv PostureServiceSer
 }
 
 func _PostureService_UpdateDefaultPosture_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(KubeArmorConfig)
+	in := new(Posture)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -81,7 +81,7 @@ func _PostureService_UpdateDefaultPosture_Handler(srv interface{}, ctx context.C
 		FullMethod: "/posture.PostureService/updateDefaultPosture",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(PostureServiceServer).UpdateDefaultPosture(ctx, req.(*KubeArmorConfig))
+		return srv.(PostureServiceServer).UpdateDefaultPosture(ctx, req.(*Posture))
 	}
 	return interceptor(ctx, in, info, handler)
 }
