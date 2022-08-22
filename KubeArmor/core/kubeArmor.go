@@ -600,6 +600,7 @@ func KubeArmor() {
 
 		// watch default posture
 		go dm.WatchDefaultPosture()
+		dm.Logger.Print("Watching  for posture changes")
 		dm.Logger.Print("Started to monitor per-namespace default posture")
 	}
 
