@@ -15,6 +15,7 @@ import (
 	cfg "github.com/kubearmor/KubeArmor/KubeArmor/config"
 	kg "github.com/kubearmor/KubeArmor/KubeArmor/log"
 	"github.com/kubearmor/KubeArmor/KubeArmor/policy"
+	"github.com/kubearmor/KubeArmor/KubeArmor/posture"
 	tp "github.com/kubearmor/KubeArmor/KubeArmor/types"
 	"google.golang.org/grpc/reflection"
 
@@ -609,6 +610,11 @@ func KubeArmor() {
 	}
 
 	policyService := &policy.ServiceServer{}
+
+	postureService := &posture.ServiceServer{}
+	postureService.UpdateDefaultPosture = dm.UpdateDefaultPosture
+	// register posture serivce
+	pb.RegisterPostureServiceServer(dm.Logger.LogServer, postureService.PostureServiceServer)
 
 	if enableContainerPolicy {
 		policyService.UpdateContainerPolicy = dm.ParseAndUpdateContainerSecurityPolicy
