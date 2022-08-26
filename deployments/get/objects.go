@@ -6,14 +6,14 @@ package deployments
 import (
 	"strconv"
 
+	cfg "github.com/kubearmor/KubeArmor/KubeArmor/config"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
-
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 // GetServiceAccount Function
@@ -524,7 +524,7 @@ func GenerateDaemonSet(env, namespace string) *appsv1.DaemonSet {
 							},
 							VolumeMounts: volumeMounts,
 							LivenessProbe: &corev1.Probe{
-								Handler: corev1.Handler{
+								ProbeHandler: corev1.ProbeHandler{
 									Exec: &corev1.ExecAction{
 										Command: []string{
 											"/bin/bash",
@@ -693,7 +693,7 @@ func GetAnnotationsControllerDeployment(namespace string) *appsv1.Deployment {
 								AllowPrivilegeEscalation: &annotationsControllerAllowPrivilegeEscalation,
 							},
 							LivenessProbe: &corev1.Probe{
-								Handler: corev1.Handler{
+								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
 										Path: "/healthz",
 										Port: intstr.FromInt(8081),
@@ -703,7 +703,7 @@ func GetAnnotationsControllerDeployment(namespace string) *appsv1.Deployment {
 								PeriodSeconds:       int32(20),
 							},
 							ReadinessProbe: &corev1.Probe{
-								Handler: corev1.Handler{
+								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
 										Path: "/readyz",
 										Port: intstr.FromInt(8081),
@@ -797,5 +797,28 @@ func GetAnnotationsControllerTLSSecret(namespace string, caCert string, tlsCrt s
 			Labels:    annotationsControllerDeploymentLabels,
 		},
 		StringData: data,
+	}
+}
+
+func GetKubearmorConfigMap(namespace, name string) *corev1.ConfigMap {
+	data := make(map[string]string)
+	data[cfg.ConfigGRPC] = "3276"
+	data[cfg.ConfigVisibility] = "process,file,network,capabilities"
+	data[cfg.ConfigCluster] = "default"
+	data[cfg.ConfigDefaultFilePosture] = "block"
+	data[cfg.ConfigHostDefaultCapabilitiesPosture] = "block"
+	data[cfg.ConfigHostDefaultNetworkPosture] = "block"
+	data["gRPC"] = "3276"
+
+	return &corev1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ConfigMap",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Data: data,
 	}
 }

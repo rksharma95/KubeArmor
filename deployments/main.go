@@ -13,6 +13,7 @@ import (
 	"github.com/clarketm/json"
 
 	dp "github.com/kubearmor/KubeArmor/deployments/get"
+
 	"sigs.k8s.io/yaml"
 
 	hsp "github.com/kubearmor/KubeArmor/pkg/KubeArmorHostPolicy/crd"
@@ -38,6 +39,7 @@ func main() {
 			dp.GetPolicyManagerDeployment(namespace),
 			dp.GetHostPolicyManagerService(namespace),
 			dp.GetHostPolicyManagerDeployment(namespace),
+			dp.GetKubearmorConfigMap(namespace, dp.KubeArmorConfigMapName),
 			ksp.GetCRD(),
 			hsp.GetCRD()}
 
