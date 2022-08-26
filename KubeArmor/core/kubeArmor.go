@@ -599,7 +599,7 @@ func KubeArmor() {
 		dm.Logger.Print("Started to monitor security policies")
 
 		// watch default posture
-		go dm.WatchConfigMap("kube-system", "KubearmorConfig")
+		go dm.WatchConfigMap("kube-system", "kubearmor-config")
 		dm.Logger.Print("Watching for posture changes")
 		dm.Logger.Print("Started to monitor per-namespace default posture")
 	}
