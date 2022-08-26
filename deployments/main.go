@@ -16,8 +16,7 @@ import (
 
 	"sigs.k8s.io/yaml"
 
-	hsp "github.com/kubearmor/KubeArmor/pkg/KubeArmorHostPolicy/crd"
-	ksp "github.com/kubearmor/KubeArmor/pkg/KubeArmorPolicy/crd"
+	kcrd "github.com/kubearmor/KubeArmor/pkg/KubeArmorController/crd"
 )
 
 func main() {
@@ -40,8 +39,8 @@ func main() {
 			dp.GetHostPolicyManagerService(namespace),
 			dp.GetHostPolicyManagerDeployment(namespace),
 			dp.GetKubearmorConfigMap(namespace, dp.KubeArmorConfigMapName),
-			ksp.GetCRD(),
-			hsp.GetCRD()}
+			kcrd.GetKspCRD(),
+			kcrd.GetHspCRD()}
 
 		currDir, err := os.Getwd()
 		if err != nil {

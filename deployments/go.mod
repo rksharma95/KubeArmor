@@ -4,12 +4,15 @@ go 1.18
 
 replace (
 	github.com/kubearmor/KubeArmor => ../
+	github.com/kubearmor/KubeArmor/pkg/KubeArmorController => ../pkg/KubeArmorController
 	github.com/kubearmor/KubeArmor/pkg/KubeArmorHostPolicy => ../pkg/KubeArmorHostPolicy
 	github.com/kubearmor/KubeArmor/pkg/KubeArmorPolicy => ../pkg/KubeArmorPolicy
+	k8s.io/api => k8s.io/api v0.22.3
+	k8s.io/apimachinery => k8s.io/apimachinery v0.22.3
 )
 
 require (
-	github.com/clarketm/json v1.17.1
+  github.com/clarketm/json v1.17.1
 	github.com/kubearmor/KubeArmor/KubeArmor v0.0.0-20220826180743-7fd1a57ce4a4
 	github.com/kubearmor/KubeArmor/pkg/KubeArmorHostPolicy v0.0.0-20220128051912-b9f5851b939b
 	github.com/kubearmor/KubeArmor/pkg/KubeArmorPolicy v0.0.0-20220128051912-b9f5851b939b

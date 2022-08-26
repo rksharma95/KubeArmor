@@ -24,6 +24,9 @@ var (
 	AnnotationsControllerDeploymentName = "kubearmor-annotation-manager"
 	AnnotationsControllerSecretName     = "kubearmor-webhook-server-cert"
 	KubeArmorConfigMapName              = "kuberamor-config"
+	KubeArmorControllerServiceName      = "kubearmor-controller-metrics-service"
+	KubeArmorControllerDeploymentName   = "kubearmor-controller"
+	KubeArmorControllerSecretName       = "kubearmor-webhook-server-cert"
 )
 
 // DaemonSetConfig Structure
