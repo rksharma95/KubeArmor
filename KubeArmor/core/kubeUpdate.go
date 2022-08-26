@@ -2196,6 +2196,19 @@ func (dm *KubeArmorDaemon) UpdateDefaultPosture(action string, namespace string,
 	}
 }
 
+func (dm *KubeArmorDaemon) UpdateGlobalPosture(posture tp.DefaultPosture) {
+	dm.EndPointsLock.Lock()
+	defer dm.EndPointsLock.Unlock()
+
+	dm.DefaultPosturesLock.Lock()
+	defer dm.DefaultPosturesLock.Unlock()
+
+	cfg.GlobalCfg.DefaultFilePosture = posture.FileAction
+	cfg.GlobalCfg.DefaultNetworkPosture = posture.NetworkAction
+	cfg.GlobalCfg.DefaultCapabilitiesPosture = posture.CapabilitiesAction
+
+}
+
 // WatchDefaultPosture Function
 func (dm *KubeArmorDaemon) WatchDefaultPosture() {
 	nsWatcher, err := K8s.K8sClient.CoreV1().Namespaces().Watch(context.Background(), metav1.ListOptions{})
@@ -2239,13 +2252,22 @@ func (dm *KubeArmorDaemon) WatchConfigMap(namespace string, configMapName string
 	for resp := range cmWatcher.ResultChan() {
 		if resp.Type == watch.Modified || resp.Type == watch.Added {
 			if cm, ok := resp.Object.(*corev1.ConfigMap); ok {
-				defaultPosture := tp.DefaultPosture{
-					FileAction:         validateDefaultPosture("kubearmor-file-posture", ns, cm.Data["defaultfileposture"]),
-					NetworkAction:      validateDefaultPosture("kubearmor-network-posture", ns, cm.Data["defaultnetworkposture"]),
-					CapabilitiesAction: validateDefaultPosture("kubearmor-capabilities-posture", ns, cm.Data["defaultcapabilitiesposture"]),
+				posture := tp.DefaultPosture{
+					FileAction:         validateDefaultPosture("kubearmor-file-posture", ns, cm.Data[cfg.ConfigDefaultFilePosture]),
+					NetworkAction:      validateDefaultPosture("kubearmor-network-posture", ns, cm.Data[cfg.ConfigDefaultNetworkPosture]),
+					CapabilitiesAction: validateDefaultPosture("kubearmor-capabilities-posture", ns, cm.Data[cfg.ConfigDefaultCapabilitiesPosture]),
 				}
-				dm.UpdateDefaultPosture(string(resp.Type), ns.Name, defaultPosture)
+				cfg.GlobalCfg.HostVisibility = cm.Data[cfg.ConfigVisibility]
+				dm.UpdateGlobalPosture(posture)
 
+			} else if resp.Type == watch.Deleted {
+				defaultPosture := tp.DefaultPosture{
+					FileAction:         validateDefaultPosture("kubearmor-file-posture", ns, cfg.GlobalCfg.DefaultFilePosture),
+					NetworkAction:      validateDefaultPosture("kubearmor-network-posture", ns, cfg.GlobalCfg.DefaultNetworkPosture),
+					CapabilitiesAction: validateDefaultPosture("kubearmor-capabilities-posture", ns, cfg.GlobalCfg.DefaultCapabilitiesPosture),
+				}
+				dm.UpdateGlobalPosture(defaultPosture)
+				cfg.GlobalCfg.HostVisibility = cm.Data[cfg.ConfigVisibility]
 			}
 		}
 	}

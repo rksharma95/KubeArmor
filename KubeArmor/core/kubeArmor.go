@@ -599,8 +599,8 @@ func KubeArmor() {
 		dm.Logger.Print("Started to monitor security policies")
 
 		// watch default posture
-		go dm.WatchDefaultPosture()
-		dm.Logger.Print("Watching  for posture changes")
+		go dm.WatchConfigMap("kube-system", "KubearmorConfig")
+		dm.Logger.Print("Watching for posture changes")
 		dm.Logger.Print("Started to monitor per-namespace default posture")
 	}
 
@@ -613,7 +613,7 @@ func KubeArmor() {
 	policyService := &policy.ServiceServer{}
 
 	postureService := &posture.ServiceServer{}
-	postureService.UpdateDefaultPosture = dm.UpdateDefaultPosture
+	postureService.UpdateDefaultPosture = dm.UpdateGlobalPosture
 	// register posture serivce
 	pb.RegisterPostureServiceServer(dm.Logger.LogServer, postureService.PostureServiceServer)
 
