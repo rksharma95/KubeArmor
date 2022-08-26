@@ -14,7 +14,7 @@ import (
 
 type ServiceServer struct {
 	pb.PostureServiceServer
-	UpdateDefaultPosture func(action string, namespace string, posture tp.DefaultPosture)
+	UpdateDefaultPosture func(posture tp.DefaultPosture)
 }
 
 func (ps *ServiceServer) DefaultPosture(c context.Context, config *pb.Posture) (*pb.Result, error) {
@@ -23,7 +23,7 @@ func (ps *ServiceServer) DefaultPosture(c context.Context, config *pb.Posture) (
 
 	err := json.Unmarshal(config.Data, &posture)
 	if err == nil {
-		ps.UpdateDefaultPosture(config.Action, config.Namespace, posture)
+		ps.UpdateDefaultPosture(posture)
 		res.Status = 1
 	} else {
 		kg.Warn("Invalid Posture")
