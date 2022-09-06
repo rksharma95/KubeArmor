@@ -12,12 +12,10 @@ replace (
 )
 
 require (
-  github.com/clarketm/json v1.17.1
-	github.com/kubearmor/KubeArmor/KubeArmor v0.0.0-20220826180743-7fd1a57ce4a4
-	github.com/kubearmor/KubeArmor/pkg/KubeArmorHostPolicy v0.0.0-20220128051912-b9f5851b939b
-	github.com/kubearmor/KubeArmor/pkg/KubeArmorPolicy v0.0.0-20220128051912-b9f5851b939b
-	k8s.io/api v0.24.3
-	k8s.io/apimachinery v0.24.3
+	github.com/clarketm/json v1.17.1
+	github.com/kubearmor/KubeArmor/pkg/KubeArmorController v0.0.0-20220829054515-5cae5f42f741
+	k8s.io/api v0.22.3
+	k8s.io/apimachinery v0.22.3
 	sigs.k8s.io/yaml v1.2.0
 )
 
