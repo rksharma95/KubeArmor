@@ -384,10 +384,12 @@ func (dm *KubeArmorDaemon) UpdateEndPointWithPod(action string, pod tp.K8sPod) {
 		if val, ok := dm.DefaultPostures[newEndPoint.NamespaceName]; ok {
 			newEndPoint.DefaultPosture = val
 		} else {
+			// fetch default posture from k8s configmap
+			cm := dm.GetConfigMap()
 			globalDefaultPosture := tp.DefaultPosture{
-				FileAction:         cfg.GlobalCfg.DefaultFilePosture,
-				NetworkAction:      cfg.GlobalCfg.DefaultNetworkPosture,
-				CapabilitiesAction: cfg.GlobalCfg.DefaultCapabilitiesPosture,
+				FileAction:         cm.Data[cfg.ConfigDefaultFilePosture],
+				NetworkAction:      cm.Data[cfg.ConfigDefaultNetworkPosture],
+				CapabilitiesAction: cm.Data[cfg.ConfigDefaultCapabilitiesPosture],
 			}
 			dm.DefaultPostures[newEndPoint.NamespaceName] = globalDefaultPosture
 			newEndPoint.DefaultPosture = globalDefaultPosture
@@ -2427,4 +2429,13 @@ func (dm *KubeArmorDaemon) WatchConfigMap(namespace string, configMapName string
 		}
 	}
 
+}
+
+// Returns KubeArmor configmap
+func (dm *KubeArmorDaemon) GetConfigMap() corev1.ConfigMap {
+	cm, err := K8s.K8sClient.CoreV1().ConfigMaps("kube-system").Get(context.Background(), "kubearmor-config", metav1.GetOptions{})
+	if err != nil {
+		kg.Err("Unable to fetch configmap")
+	}
+	return *cm
 }
