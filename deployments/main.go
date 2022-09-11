@@ -13,10 +13,10 @@ import (
 	"github.com/clarketm/json"
 
 	dp "github.com/kubearmor/KubeArmor/deployments/get"
-
 	"sigs.k8s.io/yaml"
 
-	kcrd "github.com/kubearmor/KubeArmor/pkg/KubeArmorController/crd"
+	hsp "github.com/kubearmor/KubeArmor/pkg/KubeArmorHostPolicy/crd"
+	ksp "github.com/kubearmor/KubeArmor/pkg/KubeArmorPolicy/crd"
 )
 
 func main() {
@@ -34,15 +34,12 @@ func main() {
 			dp.GetRelayService(namespace),
 			dp.GetRelayDeployment(namespace),
 			dp.GenerateDaemonSet(strings.ToLower(env), namespace),
-			// To be removed in KubeArmor v0.7
 			dp.GetPolicyManagerService(namespace),
 			dp.GetPolicyManagerDeployment(namespace),
 			dp.GetHostPolicyManagerService(namespace),
 			dp.GetHostPolicyManagerDeployment(namespace),
-			dp.GetKubearmorConfigMap(namespace, dp.KubeArmorConfigMapName),
-			//
-			kcrd.GetKspCRD(),
-			kcrd.GetHspCRD()}
+			ksp.GetCRD(),
+			hsp.GetCRD()}
 
 		currDir, err := os.Getwd()
 		if err != nil {

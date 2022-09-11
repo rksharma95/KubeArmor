@@ -15,7 +15,6 @@ import (
 	cfg "github.com/kubearmor/KubeArmor/KubeArmor/config"
 	kg "github.com/kubearmor/KubeArmor/KubeArmor/log"
 	"github.com/kubearmor/KubeArmor/KubeArmor/policy"
-	"github.com/kubearmor/KubeArmor/KubeArmor/posture"
 	tp "github.com/kubearmor/KubeArmor/KubeArmor/types"
 	"google.golang.org/grpc/reflection"
 
@@ -610,27 +609,22 @@ func KubeArmor() {
 		dm.Logger.Print("Started to monitor host security policies")
 	}
 
-	policyService := &policy.ServiceServer{}
-
-	postureService := &posture.ServiceServer{}
-	postureService.UpdateDefaultPosture = dm.UpdateGlobalPosture
-	// register posture serivce
-	pb.RegisterPostureServiceServer(dm.Logger.LogServer, postureService.PostureServiceServer)
-
-	if enableContainerPolicy {
-		policyService.UpdateContainerPolicy = dm.ParseAndUpdateContainerSecurityPolicy
-		dm.Logger.Print("Started to monitor container security policies on gRPC")
-	}
-
-	if !cfg.GlobalCfg.K8sEnv && cfg.GlobalCfg.HostPolicy {
-		policyService.UpdateHostPolicy = dm.ParseAndUpdateHostSecurityPolicy
-		dm.Node.PolicyEnabled = tp.KubeArmorPolicyEnabled
+	if !dm.K8sEnabled && (enableContainerPolicy || cfg.GlobalCfg.HostPolicy) {
+		policyService := &policy.ServiceServer{}
+		if enableContainerPolicy {
+			policyService.UpdateContainerPolicy = dm.ParseAndUpdateContainerSecurityPolicy
+			dm.Logger.Print("Started to monitor container security policies on gRPC")
+		}
+		if cfg.GlobalCfg.HostPolicy {
+			policyService.UpdateHostPolicy = dm.ParseAndUpdateHostSecurityPolicy
+			dm.Node.PolicyEnabled = tp.KubeArmorPolicyEnabled
+			dm.Logger.Print("Started to monitor host security policies on gRPC")
+		}
 
 		pb.RegisterPolicyServiceServer(dm.Logger.LogServer, policyService)
-		reflection.Register(dm.Logger.LogServer)
-
-		dm.Logger.Print("Started to monitor host security policies on gRPC")
 	}
+
+	reflection.Register(dm.Logger.LogServer) // Helps grpc clients list out what all svc/endpoints available
 
 	// serve log feeds
 	go dm.ServeLogFeeds()
