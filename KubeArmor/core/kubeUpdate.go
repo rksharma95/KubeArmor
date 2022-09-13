@@ -2417,12 +2417,14 @@ func (dm *KubeArmorDaemon) WatchConfigMap(namespace string, configMapName string
 				cfg.GlobalCfg.HostVisibility = cm.Data[cfg.ConfigVisibility]
 				dm.UpdateGlobalPosture(posture)
 				// update default posture for endpoints
-				dm.DefaultPosturesLock.Lock()
+
 				for _, endpoint := range dm.EndPoints {
 					ns := endpoint.NamespaceName
-					dm.DefaultPostures[ns] = posture
+					dm.Logger.Printf("updating default posture for %s in %s", ns, endpoint.EndPointName)
+					dm.UpdateDefaultPosture(string(resp.Type), ns, posture)
+					dm.RuntimeEnforcer.UpdateSecurityPolicies(endpoint)
 				}
-				dm.DefaultPosturesLock.Unlock()
+
 			} else if resp.Type == watch.Deleted {
 				defaultPosture := tp.DefaultPosture{
 					FileAction:         validateDefaultPosture("kubearmor-file-posture", ns, cfg.GlobalCfg.DefaultFilePosture),
