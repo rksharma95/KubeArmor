@@ -26,6 +26,25 @@ type KubeArmorPolicyReconciler struct {
 
 func (r *KubeArmorPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 
+	cr := &securityv1.KubeArmorPolicy{}
+	if err := r.Get(ctx, req.NamespacedName, cr); err != nil {
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	// Check if the resource is being deleted
+	if !cr.ObjectMeta.DeletionTimestamp.IsZero() {
+		return ctrl.Result{}, nil
+	}
+
+	// Update policy status
+	cr.Status.PolicyStatus = ActivePolicy
+	err := r.Status().Update(ctx, cr)
+
+	// requeue if status updation failed
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	return ctrl.Result{}, nil
 }
 
