@@ -1,4 +1,4 @@
-name: ci-test-ginkgo
+name: ginkgo-test
 
 on: workflow_dispatch
 #   push:
