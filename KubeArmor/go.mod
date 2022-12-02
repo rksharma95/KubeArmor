@@ -16,6 +16,7 @@ replace (
 	github.com/kubearmor/KubeArmor/KubeArmor/monitor => ./monitor
 	github.com/kubearmor/KubeArmor/KubeArmor/policy => ./policy
 	github.com/kubearmor/KubeArmor/KubeArmor/types => ./types
+	github.com/kubearmor/KubeArmor/deployments => ../deployments
 	github.com/kubearmor/KubeArmor/protobuf => ../protobuf
 )
 
@@ -26,6 +27,7 @@ require (
 	github.com/containerd/typeurl v1.0.2
 	github.com/docker/docker v20.10.17+incompatible
 	github.com/google/uuid v1.3.0
+	github.com/kubearmor/KubeArmor/deployments v0.0.0-00010101000000-000000000000
 	github.com/kubearmor/KubeArmor/protobuf v0.0.0-20220908103453-7b92e248beb9
 	github.com/opencontainers/runtime-spec v1.0.3-0.20210326190908-1c3f411f0417
 	github.com/spf13/viper v1.13.0

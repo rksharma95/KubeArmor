@@ -1068,13 +1068,12 @@ func GetKubeArmorControllerTLSSecret(namespace string, caCert string, tlsCrt str
 
 func GetKubearmorConfigMap(namespace, name string) *corev1.ConfigMap {
 	data := make(map[string]string)
-	data[cfg.ConfigGRPC] = "3276"
+	data[cfg.ConfigGRPC] = "32767"
 	data[cfg.ConfigVisibility] = "process,file,network,capabilities"
 	data[cfg.ConfigCluster] = "default"
 	data[cfg.ConfigDefaultFilePosture] = "block"
 	data[cfg.ConfigHostDefaultCapabilitiesPosture] = "block"
 	data[cfg.ConfigHostDefaultNetworkPosture] = "block"
-	data["gRPC"] = "3276"
 
 	return &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{

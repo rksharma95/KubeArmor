@@ -268,7 +268,7 @@ func (dm *KubeArmorDaemon) UpdateEndPointWithPod(action string, pod tp.K8sPod) {
 				NetworkAction:      cfg.GlobalCfg.DefaultNetworkPosture,
 				CapabilitiesAction: cfg.GlobalCfg.DefaultCapabilitiesPosture,
 			}
-			dm.DefaultPostures[newPoint.NamespaceName] = globalDefaultPosture
+			// dm.DefaultPostures[newPoint.NamespaceName] = globalDefaultPosture
 			newPoint.DefaultPosture = globalDefaultPosture
 		}
 		dm.DefaultPosturesLock.Unlock()
@@ -422,7 +422,7 @@ func (dm *KubeArmorDaemon) UpdateEndPointWithPod(action string, pod tp.K8sPod) {
 					NetworkAction:      cfg.GlobalCfg.DefaultNetworkPosture,
 					CapabilitiesAction: cfg.GlobalCfg.DefaultCapabilitiesPosture,
 				}
-				dm.DefaultPostures[newEndPoint.NamespaceName] = globalDefaultPosture
+				// dm.DefaultPostures[newEndPoint.NamespaceName] = globalDefaultPosture
 				newEndPoint.DefaultPosture = globalDefaultPosture
 			}
 			dm.DefaultPosturesLock.Unlock()
@@ -2382,12 +2382,51 @@ func (dm *KubeArmorDaemon) removeBackUpPolicy(name string) {
 // == Default Posture == //
 // ===================== //
 
-func validateDefaultPosture(key string, ns *corev1.Namespace, defaultPosture string) string {
+// UpdateDefaultPostureWithCM Function
+func (dm *KubeArmorDaemon) UpdateDefaultPostureWithCM(endPoint tp.EndPoint, action string, namespace string, defaultPosture tp.DefaultPosture, annotated bool) {
+	dm.EndPointsLock.Lock()
+	defer dm.EndPointsLock.Unlock()
+
+	dm.DefaultPosturesLock.Lock()
+	defer dm.DefaultPosturesLock.Unlock()
+
+	// configmap deleted
+	// if action == "DELETED" {
+	// 	// do nothing
+	// }
+
+	// namespace is (partialy) annotated with posture annotation(s)
+	if annotated {
+		// update the dm.DefaultPosture[namespace]
+		dm.DefaultPostures[namespace] = defaultPosture
+	}
+	dm.Logger.UpdateDefaultPosture(action, namespace, defaultPosture)
+
+	// update the endpoint with updated default posture
+
+	// update a security policy
+
+	dm.Logger.Printf("Updating default posture for %s with current posure %v now default changed to %v", endPoint.EndPointName, endPoint.DefaultPosture, defaultPosture)
+	endPoint.DefaultPosture = defaultPosture
+	dm.Logger.Printf("Updated default posture for %s with %v", endPoint.EndPointName, endPoint.DefaultPosture)
+	if cfg.GlobalCfg.Policy {
+		// update security policies
+		if dm.RuntimeEnforcer != nil {
+			if endPoint.PolicyEnabled == tp.KubeArmorPolicyEnabled {
+				// enforce security policies
+				dm.RuntimeEnforcer.UpdateSecurityPolicies(endPoint)
+			}
+		}
+	}
+
+}
+
+func validateDefaultPosture(key string, ns *corev1.Namespace, defaultPosture string) (string, bool) {
 	if posture, ok := ns.Annotations[key]; ok {
 		if posture == "audit" || posture == "Audit" {
-			return "audit"
+			return "audit", true
 		} else if posture == "block" || posture == "Block" {
-			return "block"
+			return "block", true
 		}
 		// Invalid Annotation Value, Updating the value to global default
 		ns.Annotations[key] = defaultPosture
@@ -2396,23 +2435,29 @@ func validateDefaultPosture(key string, ns *corev1.Namespace, defaultPosture str
 			kg.Warnf("Error updating invalid default posture annotation for %v", updatedNS)
 		}
 	}
-	return defaultPosture
+	return defaultPosture, false
 }
 
 // UpdateDefaultPosture Function
-func (dm *KubeArmorDaemon) UpdateDefaultPosture(action string, namespace string, defaultPosture tp.DefaultPosture) {
+func (dm *KubeArmorDaemon) UpdateDefaultPosture(action string, namespace string, defaultPosture tp.DefaultPosture, annotated bool) {
 	dm.EndPointsLock.Lock()
 	defer dm.EndPointsLock.Unlock()
 
 	dm.DefaultPosturesLock.Lock()
 	defer dm.DefaultPosturesLock.Unlock()
 
+	// namespace deleted
 	if action == "DELETED" {
-		delete(dm.DefaultPostures, namespace)
+		_, ok := dm.DefaultPostures[namespace]
+		if ok {
+			delete(dm.DefaultPostures, namespace)
+		}
 	}
 
-	dm.DefaultPostures[namespace] = defaultPosture
-
+	// namespace is annotated with posture annotation(s)
+	if annotated {
+		dm.DefaultPostures[namespace] = defaultPosture
+	}
 	dm.Logger.UpdateDefaultPosture(action, namespace, defaultPosture)
 
 	for idx, endPoint := range dm.EndPoints {
@@ -2422,8 +2467,8 @@ func (dm *KubeArmorDaemon) UpdateDefaultPosture(action string, namespace string,
 				continue
 			}
 
+			dm.Logger.Printf("Updating default posture for %s with %v namespace default %v", endPoint.EndPointName, dm.EndPoints[idx].DefaultPosture, defaultPosture)
 			dm.EndPoints[idx].DefaultPosture = defaultPosture
-			dm.Logger.Printf("Updating default posture for %s with %v/%v", endPoint.EndPointName, dm.EndPoints[idx].DefaultPosture, dm.DefaultPostures[namespace])
 
 			if cfg.GlobalCfg.Policy {
 				// update security policies
@@ -2438,6 +2483,17 @@ func (dm *KubeArmorDaemon) UpdateDefaultPosture(action string, namespace string,
 	}
 }
 
+func validateGlobalDefaultPosture(posture string) string {
+	switch posture {
+	case "audit", "Audit":
+		return "audit"
+	case "block", "Block":
+		return "block"
+	default:
+		return "audit"
+	}
+}
+
 func (dm *KubeArmorDaemon) UpdateGlobalPosture(posture tp.DefaultPosture) {
 	dm.EndPointsLock.Lock()
 	defer dm.EndPointsLock.Unlock()
@@ -2445,9 +2501,13 @@ func (dm *KubeArmorDaemon) UpdateGlobalPosture(posture tp.DefaultPosture) {
 	dm.DefaultPosturesLock.Lock()
 	defer dm.DefaultPosturesLock.Unlock()
 
-	cfg.GlobalCfg.DefaultFilePosture = posture.FileAction
-	cfg.GlobalCfg.DefaultNetworkPosture = posture.NetworkAction
-	cfg.GlobalCfg.DefaultCapabilitiesPosture = posture.CapabilitiesAction
+	cfg.GlobalCfg.DefaultFilePosture = validateGlobalDefaultPosture(posture.FileAction)
+	cfg.GlobalCfg.DefaultNetworkPosture = validateGlobalDefaultPosture(posture.NetworkAction)
+	cfg.GlobalCfg.DefaultCapabilitiesPosture = validateGlobalDefaultPosture(posture.CapabilitiesAction)
+
+	dm.Logger.Printf("updated gloabal defaultFilePoster as %v", cfg.GlobalCfg.DefaultFilePosture)
+	dm.Logger.Printf("updated gloabal defaultCapabilitiesPoster as %v", cfg.GlobalCfg.DefaultCapabilitiesPosture)
+	dm.Logger.Printf("updated gloabal defaultNetworkPoster as %v", cfg.GlobalCfg.DefaultNetworkPosture)
 
 }
 
@@ -2459,27 +2519,41 @@ func (dm *KubeArmorDaemon) WatchDefaultPosture() {
 	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			if ns, ok := obj.(*corev1.Namespace); ok {
+				fp, fa := validateDefaultPosture("kubearmor-file-posture", ns, cfg.GlobalCfg.DefaultFilePosture)
+				np, na := validateDefaultPosture("kubearmor-network-posture", ns, cfg.GlobalCfg.DefaultNetworkPosture)
+				cp, ca := validateDefaultPosture("kubearmor-capabilities-posture", ns, cfg.GlobalCfg.DefaultCapabilitiesPosture)
 				defaultPosture := tp.DefaultPosture{
-					FileAction:         validateDefaultPosture("kubearmor-file-posture", ns, cfg.GlobalCfg.DefaultFilePosture),
-					NetworkAction:      validateDefaultPosture("kubearmor-network-posture", ns, cfg.GlobalCfg.DefaultNetworkPosture),
-					CapabilitiesAction: validateDefaultPosture("kubearmor-capabilities-posture", ns, cfg.GlobalCfg.DefaultCapabilitiesPosture),
+					FileAction:         fp,
+					NetworkAction:      np,
+					CapabilitiesAction: cp,
 				}
-				dm.UpdateDefaultPosture("ADDED", ns.Name, defaultPosture)
+				annotated := fa || na || ca
+				dm.UpdateDefaultPosture("ADDED", ns.Name, defaultPosture, annotated)
+
 			}
 		},
 		UpdateFunc: func(old, new interface{}) {
 			if ns, ok := new.(*corev1.Namespace); ok {
+				fp, fa := validateDefaultPosture("kubearmor-file-posture", ns, cfg.GlobalCfg.DefaultFilePosture)
+				np, na := validateDefaultPosture("kubearmor-network-posture", ns, cfg.GlobalCfg.DefaultNetworkPosture)
+				cp, ca := validateDefaultPosture("kubearmor-capabilities-posture", ns, cfg.GlobalCfg.DefaultCapabilitiesPosture)
 				defaultPosture := tp.DefaultPosture{
-					FileAction:         validateDefaultPosture("kubearmor-file-posture", ns, cfg.GlobalCfg.DefaultFilePosture),
-					NetworkAction:      validateDefaultPosture("kubearmor-network-posture", ns, cfg.GlobalCfg.DefaultNetworkPosture),
-					CapabilitiesAction: validateDefaultPosture("kubearmor-capabilities-posture", ns, cfg.GlobalCfg.DefaultCapabilitiesPosture),
+					FileAction:         fp,
+					NetworkAction:      np,
+					CapabilitiesAction: cp,
 				}
-				dm.UpdateDefaultPosture("MODIFIED", ns.Name, defaultPosture)
+				annotated := fa || na || ca
+				dm.UpdateDefaultPosture("MODIFIED", ns.Name, defaultPosture, annotated)
+
 			}
 		},
 		DeleteFunc: func(obj interface{}) {
 			if ns, ok := obj.(*corev1.Namespace); ok {
-				dm.UpdateDefaultPosture("DELETED", ns.Name, tp.DefaultPosture{})
+				_, fa := validateDefaultPosture("kubearmor-file-posture", ns, cfg.GlobalCfg.DefaultFilePosture)
+				_, na := validateDefaultPosture("kubearmor-network-posture", ns, cfg.GlobalCfg.DefaultNetworkPosture)
+				_, ca := validateDefaultPosture("kubearmor-capabilities-posture", ns, cfg.GlobalCfg.DefaultCapabilitiesPosture)
+				annotated := fa || na || ca
+				dm.UpdateDefaultPosture("DELETED", ns.Name, tp.DefaultPosture{}, annotated)
 			}
 		},
 	})
@@ -2491,11 +2565,6 @@ func (dm *KubeArmorDaemon) WatchDefaultPosture() {
 
 // WatchConfigMap function
 func (dm *KubeArmorDaemon) WatchConfigMap(namespace string, configMapName string) {
-	ns, err := K8s.K8sClient.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
-	if err != nil {
-		kg.Err("unable to fetch requested namespace")
-	}
-
 	cmWatcher, err := K8s.K8sClient.CoreV1().ConfigMaps(namespace).Watch(context.TODO(), metav1.SingleObject(metav1.ObjectMeta{
 		Name:      configMapName,
 		Namespace: namespace,
@@ -2507,30 +2576,60 @@ func (dm *KubeArmorDaemon) WatchConfigMap(namespace string, configMapName string
 	for resp := range cmWatcher.ResultChan() {
 		if resp.Type == watch.Modified || resp.Type == watch.Added {
 			if cm, ok := resp.Object.(*corev1.ConfigMap); ok {
-				posture := tp.DefaultPosture{
-					FileAction:         validateDefaultPosture("kubearmor-file-posture", ns, cm.Data[cfg.ConfigDefaultFilePosture]),
-					NetworkAction:      validateDefaultPosture("kubearmor-network-posture", ns, cm.Data[cfg.ConfigDefaultNetworkPosture]),
-					CapabilitiesAction: validateDefaultPosture("kubearmor-capabilities-posture", ns, cm.Data[cfg.ConfigDefaultCapabilitiesPosture]),
-				}
 				cfg.GlobalCfg.HostVisibility = cm.Data[cfg.ConfigVisibility]
-				dm.UpdateGlobalPosture(posture)
+				globalPosture := tp.DefaultPosture{
+					FileAction:         cm.Data[cfg.ConfigDefaultFilePosture],
+					NetworkAction:      cm.Data[cfg.ConfigDefaultNetworkPosture],
+					CapabilitiesAction: cm.Data[cfg.ConfigDefaultCapabilitiesPosture],
+				}
+				currentGlobalPosture := tp.DefaultPosture{
+					FileAction:         cfg.GlobalCfg.DefaultFilePosture,
+					NetworkAction:      cfg.GlobalCfg.DefaultNetworkPosture,
+					CapabilitiesAction: cfg.GlobalCfg.DefaultCapabilitiesPosture,
+				}
+				dm.Logger.Printf("Current Global Posture is %v", currentGlobalPosture)
+				dm.UpdateGlobalPosture(globalPosture)
 				// update default posture for endpoints
 
 				for _, endpoint := range dm.EndPoints {
-					ns := endpoint.NamespaceName
-					dm.Logger.Printf("updating default posture for %s in %s", ns, endpoint.EndPointName)
-					dm.UpdateDefaultPosture(string(resp.Type), ns, posture)
-					dm.RuntimeEnforcer.UpdateSecurityPolicies(endpoint)
+					ns, err := K8s.K8sClient.CoreV1().Namespaces().Get(context.Background(), endpoint.NamespaceName, metav1.GetOptions{})
+					if err != nil {
+						kg.Err("unable to fetch requested namespace")
+					}
+					fp, fa := validateDefaultPosture("kubearmor-file-posture", ns, cm.Data[cfg.ConfigDefaultFilePosture])
+					np, na := validateDefaultPosture("kubearmor-network-posture", ns, cm.Data[cfg.ConfigDefaultNetworkPosture])
+					cp, ca := validateDefaultPosture("kubearmor-capabilities-posture", ns, cm.Data[cfg.ConfigDefaultCapabilitiesPosture])
+					annotated := fa || na || ca      // if namespace is annotated for atleast one posture
+					fullyannotated := fa && na && ca // if namespace is fully annotated
+					posture := tp.DefaultPosture{
+						FileAction:         fp,
+						NetworkAction:      np,
+						CapabilitiesAction: cp,
+					}
+					dm.Logger.Printf("namespace %v is fullyannotated %v", ns.Name, fullyannotated)
+					if !fullyannotated { // an optimization here, only change posture for unannotated or partially annotated namespace endpoints
+						dm.Logger.Printf("default posture for endopoint %v is %v", endpoint.EndPointName, endpoint.DefaultPosture)
+						dm.Logger.Printf("global default posture changed to %v", posture)
+						dm.Logger.Printf("[check] if comdition met: %v", endpoint.DefaultPosture == posture)
+						if endpoint.DefaultPosture != posture { // optimization, only if its needed to update the posture
+							dm.Logger.Printf("updating default posture for %s in %s", ns.Name, endpoint.EndPointName)
+							dm.UpdateDefaultPostureWithCM(endpoint, string(resp.Type), ns.Name, posture, annotated)
+						}
+					}
+					// dm.RuntimeEnforcer.UpdateSecurityPolicies(endpoint) -> part of UpdateDefaultPostureWithCM()
 				}
 
 			} else if resp.Type == watch.Deleted {
-				defaultPosture := tp.DefaultPosture{
-					FileAction:         validateDefaultPosture("kubearmor-file-posture", ns, cfg.GlobalCfg.DefaultFilePosture),
-					NetworkAction:      validateDefaultPosture("kubearmor-network-posture", ns, cfg.GlobalCfg.DefaultNetworkPosture),
-					CapabilitiesAction: validateDefaultPosture("kubearmor-capabilities-posture", ns, cfg.GlobalCfg.DefaultCapabilitiesPosture),
-				}
-				dm.UpdateGlobalPosture(defaultPosture)
-				cfg.GlobalCfg.HostVisibility = cm.Data[cfg.ConfigVisibility]
+				// if configMap deleted nothing to do here
+				/*
+					defaultPosture := tp.DefaultPosture{
+						FileAction:         cfg.GlobalCfg.DefaultFilePosture,
+						NetworkAction:      cfg.GlobalCfg.DefaultNetworkPosture,
+						CapabilitiesAction: cfg.GlobalCfg.DefaultCapabilitiesPosture,
+					}
+					dm.UpdateGlobalPosture(defaultPosture)
+					cfg.GlobalCfg.HostVisibility = cm.Data[cfg.ConfigVisibility]
+				*/
 			}
 		}
 	}

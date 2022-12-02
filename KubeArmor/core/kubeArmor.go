@@ -601,6 +601,7 @@ func KubeArmor() {
 		go dm.WatchConfigMap("kube-system", "kubearmor-config")
 		dm.Logger.Print("Watching for posture changes")
 		dm.Logger.Print("Started to monitor per-namespace default posture")
+		dm.WatchDefaultPosture()
 	}
 
 	if dm.K8sEnabled && cfg.GlobalCfg.HostPolicy {
