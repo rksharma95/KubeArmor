@@ -1,0 +1,44 @@
+{{- if .Values.kubearmorrelay.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: kubearmor
+  namespace: kube-system
+spec:
+  ports:
+  - port: 32767
+    protocol: TCP
+    targetPort: 32767
+  selector:
+    kubearmor-app: kubearmor-relay
+{{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    kubearmor-app: {{ .Values.kubearmorPolicyManager.name }}
+  name: {{ .Values.kubearmorPolicyManager.name}}-metrics-service
+  namespace: kube-system
+spec:
+  ports:
+  - name: https
+    port: 8443
+    targetPort: https
+  selector:
+    kubearmor-app: {{ .Values.kubearmorPolicyManager.name }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    kubearmor-app: {{ .Values.kubearmorHostPolicyManager.name }}
+  name: {{ .Values.kubearmorHostPolicyManager.name }}-metrics-service
+  namespace: kube-system
+spec:
+  ports:
+  - name: https
+    port: 8443
+    targetPort: https
+  selector:
+    kubearmor-app: {{ .Values.kubearmorHostPolicyManager.name }}    
