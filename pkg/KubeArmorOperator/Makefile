@@ -95,6 +95,30 @@ operator-sdk:
 	chmod +x operator-sdk_linux_amd64
 	sudo mv operator-sdk_linux_amd64 /usr/local/bin/operator-sdk
 
+.PHONY: manifests
+manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
+	go mod tidy; $(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+
+.PHONY: generate
+generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
+	go mod tidy; $(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
+
+CONTROLLER_GEN = $(GOBIN)/controller-gen
+.PHONY: controller-gen
+controller-gen: ## Download controller-gen locally if necessary.
+	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.4.1)
+
+client/gen:
+	@echo "--> Running code-generator to generate clients"
+	# prepare tool code-generator
+	@mkdir -p ./tmp/code-generator
+	@git clone https://github.com/kubernetes/code-generator.git --branch v0.22.1 --single-branch  ./tmp/code-generator
+	# generate client
+	GOPATH= GOROOT= ./tmp/code-generator/generate-groups.sh "all" github.com/kubearmor/KubeArmor/pkg/KubeArmorOperator/client github.com/kubearmor/KubeArmor/pkg/KubeArmorOperator/api operator.kubearmor.com:v1 --go-header-file hack/boilerplate.go.txt
+	# check generated client at ./pkg/client
+	@cp -r ./github.com/kubearmor/KubeArmor/pkg/KubeArmorOperator/client/* ./client/
+	@rm -rf ./github.com ./tmp/code-generator		
+
 .PHONY: bundle
 bundle: operator-sdk
 	${OPERATOR_SDK} generate bundle --version ${BUNDLE_VER} --input-dir ./manifest --output-dir ./bundle --package ${BUNDLE_PKG}

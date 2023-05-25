@@ -8,6 +8,7 @@ import (
 	"errors"
 	"path/filepath"
 
+	opv1client "github.com/kubearmor/KubeArmor/pkg/KubeArmorOperator/client/clientset/versioned"
 	"github.com/kubearmor/KubeArmor/pkg/KubeArmorOperator/controllers"
 	"github.com/kubearmor/KubeArmor/pkg/KubeArmorOperator/k8s"
 	"github.com/spf13/cobra"
@@ -25,6 +26,7 @@ var LsmOrder string
 var PathPrefix string
 var DeploymentName string
 var ExtClient *apiextensionsclientset.Clientset
+var Opv1Client *opv1client.Clientset
 
 // rootCmd represents the base command when called without any subcommands
 var Cmd = &cobra.Command{
@@ -33,6 +35,7 @@ var Cmd = &cobra.Command{
 		Logger = log.Sugar()
 		K8sClient = k8s.NewClient(*Logger, KubeConfig)
 		ExtClient = k8s.NewExtClient(*Logger, KubeConfig)
+		Opv1Client = k8s.NewOpv1Client(*Logger, KubeConfig)
 		//Initialise k8sClient for all child commands to inherit
 		if K8sClient == nil {
 			return errors.New("could'nt create k8s client")
@@ -40,7 +43,7 @@ var Cmd = &cobra.Command{
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		nodeWatcher := controllers.NewClusterWatcher(K8sClient, Logger, ExtClient, PathPrefix, DeploymentName)
+		nodeWatcher := controllers.NewClusterWatcher(K8sClient, Logger, ExtClient, Opv1Client, PathPrefix, DeploymentName)
 		go nodeWatcher.WatchRequiredResources()
 		nodeWatcher.WatchNodes()
 

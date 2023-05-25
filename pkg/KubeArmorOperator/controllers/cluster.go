@@ -2,9 +2,13 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 
+	opv1 "github.com/kubearmor/KubeArmor/pkg/KubeArmorOperator/api/operator.kubearmor.com/v1"
+	opv1client "github.com/kubearmor/KubeArmor/pkg/KubeArmorOperator/client/clientset/versioned"
+	opv1Informer "github.com/kubearmor/KubeArmor/pkg/KubeArmorOperator/client/informers/externalversions"
 	"github.com/kubearmor/KubeArmor/pkg/KubeArmorOperator/common"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -28,6 +32,7 @@ type ClusterWatcher struct {
 	Log            *zap.SugaredLogger
 	Client         *kubernetes.Clientset
 	ExtClient      *apiextensionsclientset.Clientset
+	Opv1Client     *opv1client.Clientset
 	Daemonsets     map[string]int
 	DaemonsetsLock *sync.Mutex
 }
@@ -40,7 +45,7 @@ type Node struct {
 	Arch           string
 }
 
-func NewClusterWatcher(client *kubernetes.Clientset, log *zap.SugaredLogger, extClient *apiextensionsclientset.Clientset, pathPrefix, deploy_name string) *ClusterWatcher {
+func NewClusterWatcher(client *kubernetes.Clientset, log *zap.SugaredLogger, extClient *apiextensionsclientset.Clientset, opv1Client *opv1client.Clientset, pathPrefix, deploy_name string) *ClusterWatcher {
 	if informer == nil {
 		informer = informers.NewSharedInformerFactory(client, 0)
 	}
@@ -202,4 +207,31 @@ func (clusterWatcher *ClusterWatcher) UpdateDaemonsets(action, enforcer, runtime
 		}
 	}
 
+}
+
+func (clusterWatcher *ClusterWatcher) WatchConfigCrd() {
+	factory := opv1Informer.NewSharedInformerFactory(clusterWatcher.Opv1Client, 0)
+
+	informer := factory.Operator().V1().Configs().Informer()
+
+	informer.AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				if cfg, ok := obj.(*opv1.Config); ok {
+					foo := cfg.Spec.Foo
+					fmt.Print(foo)
+				}
+			},
+		},
+	)
+	// setup Config CRD informers here
+	// if CRD has been
+	// Created: Deploy the resources on the nodes.
+	// Updated:
+	//   if namespace get updated:
+	//     delete all the resources from previous namespace
+	//     install resources in new updated namespace
+	//   if namespace not changed:
+	//     update configmap with new values.
+	// Deleted: nothing to do here
 }
