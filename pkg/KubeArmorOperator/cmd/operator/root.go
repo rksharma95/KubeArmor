@@ -44,7 +44,7 @@ var Cmd = &cobra.Command{
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		nodeWatcher := controllers.NewClusterWatcher(K8sClient, Logger, ExtClient, Opv1Client, PathPrefix, DeploymentName)
-		go nodeWatcher.WatchRequiredResources()
+		go nodeWatcher.WatchConfigCrd()
 		nodeWatcher.WatchNodes()
 
 	},

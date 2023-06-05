@@ -1,4 +1,4 @@
-FROM docker.io/golang:1.19 as builder
+FROM docker.io/golang:1.20 as builder
 ARG GOARCH
 ARG GOOS
 WORKDIR /app
@@ -11,6 +11,8 @@ COPY go.sum go.sum
 # and so that source changes don't invalidate our downloaded layer
 RUN go mod download
 
+COPY api api
+COPY client client
 COPY main.go main.go
 COPY cmd cmd
 COPY common common

@@ -2,10 +2,11 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"sync"
+	"time"
 
+	deployments "github.com/kubearmor/KubeArmor/deployments/get"
 	opv1 "github.com/kubearmor/KubeArmor/pkg/KubeArmorOperator/api/operator.kubearmor.com/v1"
 	opv1client "github.com/kubearmor/KubeArmor/pkg/KubeArmorOperator/client/clientset/versioned"
 	opv1Informer "github.com/kubearmor/KubeArmor/pkg/KubeArmorOperator/client/informers/externalversions"
@@ -13,6 +14,7 @@ import (
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -50,7 +52,7 @@ func NewClusterWatcher(client *kubernetes.Clientset, log *zap.SugaredLogger, ext
 		informer = informers.NewSharedInformerFactory(client, 0)
 	}
 	if deployment_uuid == "" {
-		deploy, err := client.AppsV1().Deployments(common.OperatorNamespace).Get(context.Background(), deployment_name, v1.GetOptions{})
+		deploy, err := client.AppsV1().Deployments(common.Namespace).Get(context.Background(), deployment_name, v1.GetOptions{})
 		if err != nil {
 			log.Warnf("Cannot get deployment %s, error=%s", deployment_name, err.Error())
 		} else {
@@ -67,6 +69,7 @@ func NewClusterWatcher(client *kubernetes.Clientset, log *zap.SugaredLogger, ext
 		DaemonsetsLock: &sync.Mutex{},
 		Client:         client,
 		ExtClient:      extClient,
+		Opv1Client:     opv1Client,
 	}
 }
 
@@ -80,7 +83,7 @@ func (clusterWatcher *ClusterWatcher) WatchNodes() {
 				runtime = strings.Split(runtime, ":")[0]
 				if val, ok := node.Labels[common.OsLabel]; ok && val == "linux" {
 					log.Infof("Installing snitch on node %s", node.Name)
-					_, err := clusterWatcher.Client.BatchV1().Jobs("kube-system").Create(context.Background(), deploySnitch(node.Name, runtime), v1.CreateOptions{})
+					_, err := clusterWatcher.Client.BatchV1().Jobs(common.Namespace).Create(context.Background(), deploySnitch(node.Name, runtime), v1.CreateOptions{})
 					if err != nil {
 						log.Errorf("Cannot run snitch on node %s, error=%s", node.Name, err.Error())
 						return
@@ -166,6 +169,7 @@ func (clusterWatcher *ClusterWatcher) WatchNodes() {
 }
 
 func (clusterWatcher *ClusterWatcher) UpdateDaemonsets(action, enforcer, runtime, socket, runtimeStorage string) {
+	clusterWatcher.Log.Info("updating daemonset")
 	daemonsetName := strings.Join([]string{
 		"kubearmor",
 		strings.ReplaceAll(enforcer, ".", "-"),
@@ -210,28 +214,189 @@ func (clusterWatcher *ClusterWatcher) UpdateDaemonsets(action, enforcer, runtime
 }
 
 func (clusterWatcher *ClusterWatcher) WatchConfigCrd() {
-	factory := opv1Informer.NewSharedInformerFactory(clusterWatcher.Opv1Client, 0)
+
+	factory := opv1Informer.NewSharedInformerFactoryWithOptions(clusterWatcher.Opv1Client,
+		time.Duration(5*time.Second),
+		opv1Informer.WithNamespace(common.Namespace))
 
 	informer := factory.Operator().V1().Configs().Informer()
+
+	if informer == nil {
+		clusterWatcher.Log.Warn("Failed to initialize Config informer")
+		return
+	}
+
+	var firstRun = true
 
 	informer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
+				configCrdList, err := clusterWatcher.Opv1Client.OperatorV1().Configs(common.Namespace).List(context.Background(), metav1.ListOptions{})
+				if err != nil {
+					clusterWatcher.Log.Warn("Failed to list Operator Config CRDs")
+					return
+				}
+				for _, cfg := range configCrdList.Items {
+					// if there's any crd with Running status
+					// mark it as current operating config crd
+					if cfg.Status.Phase == common.RUNNING {
+						clusterWatcher.Log.Infof("%s is operatingcrd", cfg.Name)
+						common.OperatigConfigCrd = &cfg
+						if firstRun {
+							clusterWatcher.Log.Info("1. it is first run")
+							go clusterWatcher.WatchRequiredResources()
+							firstRun = false
+						}
+						break
+					}
+				}
 				if cfg, ok := obj.(*opv1.Config); ok {
-					foo := cfg.Spec.Foo
-					fmt.Print(foo)
+					// if there's no operating crd exist
+					if common.OperatigConfigCrd == nil {
+						clusterWatcher.Log.Info("currently there's no operating crd")
+						common.OperatigConfigCrd = cfg
+						clusterWatcher.Log.Infof("%s is now set as operating crd", cfg.Name)
+						UpdateConfigMapData(&cfg.Spec)
+						// update status to (Installation) Created
+						go clusterWatcher.UpdateCrdStatus(cfg.Name, common.CREATED, common.CREATED_MSG)
+						go clusterWatcher.WatchRequiredResources()
+						firstRun = false
+					}
+					// if it's not the operating crd
+					// update this crd status as Error and return
+					if cfg.Name != common.OperatigConfigCrd.Name {
+						clusterWatcher.Log.Infof("%s is invalid there's already an operating crd exists", cfg.Name)
+						go clusterWatcher.UpdateCrdStatus(cfg.Name, common.ERROR, common.MULTIPLE_CRD_ERR_MSG)
+						return
+					}
+
+				}
+			},
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				if cfg, ok := newObj.(*opv1.Config); ok {
+					// update configmap if it's operating crd
+					if common.OperatigConfigCrd != nil && cfg.Name == common.OperatigConfigCrd.Name {
+						configChanged := UpdateConfigMapData(&cfg.Spec)
+						if configChanged {
+							clusterWatcher.Log.Infof("config changed to %s", cfg.Spec)
+						}
+						if !configChanged && cfg.Status != oldObj.(*opv1.Config).Status {
+							clusterWatcher.Log.Infof("config not changed only status has been updated from %s to %s",
+								oldObj.(*opv1.Config).Status, cfg.Status)
+							return
+						}
+						if configChanged {
+							clusterWatcher.Log.Info("operating crds config changed")
+							// update status to Updating
+							go clusterWatcher.UpdateCrdStatus(cfg.Name, common.UPDATING, common.UPDATING_MSG)
+							clusterWatcher.UpdateKubeArmorConfigMap(cfg)
+						}
+					}
+				}
+			},
+			DeleteFunc: func(obj interface{}) {
+				if cfg, ok := obj.(*opv1.Config); ok {
+					if common.OperatigConfigCrd != nil && cfg.Name == common.OperatigConfigCrd.Name {
+						clusterWatcher.Log.Info("operating crd gets deleted")
+						common.OperatigConfigCrd = nil
+					}
 				}
 			},
 		},
 	)
-	// setup Config CRD informers here
-	// if CRD has been
-	// Created: Deploy the resources on the nodes.
-	// Updated:
-	//   if namespace get updated:
-	//     delete all the resources from previous namespace
-	//     install resources in new updated namespace
-	//   if namespace not changed:
-	//     update configmap with new values.
-	// Deleted: nothing to do here
+
+	go informer.Run(wait.NeverStop)
+
+	if ok := cache.WaitForCacheSync(wait.NeverStop, informer.HasSynced); !ok {
+		clusterWatcher.Log.Warn("Failed to wait for cache sync")
+	}
+}
+
+func (clusterWatcher *ClusterWatcher) UpdateCrdStatus(cfg, phase, message string) {
+	err := wait.ExponentialBackoff(wait.Backoff{Steps: 5, Duration: 500 * time.Millisecond}, func() (bool, error) {
+		configCrd, err := clusterWatcher.Opv1Client.OperatorV1().Configs(common.Namespace).Get(context.Background(), cfg, metav1.GetOptions{})
+		if err != nil {
+			clusterWatcher.Log.Warnf("1. error getting the crd %s\n", err)
+			// retry the update
+			return false, nil
+		}
+		// update status only if there's any change
+		newStatus := opv1.ConfigStatus{
+			Phase:   phase,
+			Message: message,
+		}
+		if configCrd.Status != newStatus {
+			clusterWatcher.Log.Infof("Current status %s changed to %s\n", configCrd.Status, newStatus)
+			configCrd.Status = newStatus
+			_, err = clusterWatcher.Opv1Client.OperatorV1().Configs(common.Namespace).UpdateStatus(context.Background(), configCrd, metav1.UpdateOptions{})
+			if err != nil {
+				// retry the update
+				clusterWatcher.Log.Warnf("2. error updating the status %s\n", err)
+				return false, nil
+			}
+		}
+		return true, nil
+	})
+	if err != nil {
+		clusterWatcher.Log.Errorf("Error updating the ConfigCRD status %s", err)
+		return
+	}
+	clusterWatcher.Log.Info("Config CRD Status Updated Successfully")
+}
+
+func (clusterWatcher *ClusterWatcher) UpdateKubeArmorConfigMap(cfg *opv1.Config) {
+	err := wait.ExponentialBackoff(wait.Backoff{Steps: 5, Duration: 500 * time.Millisecond}, func() (bool, error) {
+		cm, err := clusterWatcher.Client.CoreV1().ConfigMaps(common.Namespace).Get(context.Background(), deployments.KubeArmorConfigMapName, metav1.GetOptions{})
+		if err != nil {
+			if isNotfound(err) {
+				return true, nil
+			}
+			// retry the update
+			return false, nil
+		}
+		cm.Data = common.ConfigMapData
+		_, err = clusterWatcher.Client.CoreV1().ConfigMaps(common.Namespace).Update(context.Background(), cm, metav1.UpdateOptions{})
+		if err != nil {
+			// retry the update
+			return false, nil
+		}
+		return true, nil
+	})
+
+	if err != nil {
+		clusterWatcher.Log.Errorf("Error updating the Config %s", err)
+		go clusterWatcher.UpdateCrdStatus(cfg.Name, common.ERROR, common.UPDATION_FAILED_ERR_MSG)
+		return
+	}
+	go clusterWatcher.UpdateCrdStatus(cfg.Name, common.RUNNING, common.RUNNING_MSG)
+	clusterWatcher.Log.Info("KubeArmor Config Updated Successfully")
+}
+
+func UpdateConfigMapData(config *opv1.ConfigSpec) bool {
+	updated := false
+	if config.DefaultFilePosture != "" {
+		if common.ConfigMapData[common.ConfigDefaultFilePosture] != string(config.DefaultFilePosture) {
+			common.ConfigMapData[common.ConfigDefaultFilePosture] = string(config.DefaultFilePosture)
+			updated = true
+		}
+	}
+	if config.DefaultCapabilitiesPosture != "" {
+		if common.ConfigMapData[common.ConfigDefaultCapabilitiesPosture] != string(config.DefaultCapabilitiesPosture) {
+			common.ConfigMapData[common.ConfigDefaultCapabilitiesPosture] = string(config.DefaultCapabilitiesPosture)
+			updated = true
+		}
+	}
+	if config.DefaultNetworkPosture != "" {
+		if common.ConfigMapData[common.ConfigDefaultNetworkPosture] != string(config.DefaultNetworkPosture) {
+			common.ConfigMapData[common.ConfigDefaultNetworkPosture] = string(config.DefaultNetworkPosture)
+			updated = true
+		}
+	}
+	if config.DefaultVisibility != "" {
+		if common.ConfigMapData[common.ConfigVisibility] != string(config.DefaultVisibility) {
+			common.ConfigMapData[common.ConfigVisibility] = string(config.DefaultVisibility)
+			updated = true
+		}
+	}
+	return updated
 }

@@ -260,6 +260,10 @@ func isNotfound(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "not found")
 }
 
+func isAlreadyExists(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "already exist")
+}
+
 func addOwnership(obj interface{}) interface{} {
 	if deployment_uuid == "" {
 		return obj
@@ -294,13 +298,16 @@ func addOwnership(obj interface{}) interface{} {
 	case *extv1.CustomResourceDefinition:
 		resource.OwnerReferences = OwnerReferences
 		return resource
+	case *corev1.ConfigMap:
+		resource.OwnerReferences = OwnerReferences
+		return resource
 	}
 	return obj
 }
 
 func (clusterWatcher *ClusterWatcher) WatchRequiredResources() {
 	var caCert, tlsCrt, tlsKey *bytes.Buffer
-	var kGenErr, err error
+	var kGenErr, err, installErr error
 	RotateTls := false
 	FirstRun := true
 	srvAccs := []*corev1.ServiceAccount{
@@ -313,17 +320,25 @@ func (clusterWatcher *ClusterWatcher) WatchRequiredResources() {
 	}
 	svcs := []*corev1.Service{
 		addOwnership(deployments.GetKubeArmorControllerService(common.Namespace)).(*corev1.Service),
-		addOwnership(deployments.GetKubeArmorControllerService(common.Namespace)).(*corev1.Service),
+		addOwnership(deployments.GetRelayService(common.Namespace)).(*corev1.Service),
 	}
 	// Install CRDs
 	ksp := crds.GetKspCRD()
 	ksp = addOwnership(ksp).(extv1.CustomResourceDefinition)
 	if _, err := clusterWatcher.ExtClient.ApiextensionsV1().CustomResourceDefinitions().Create(context.Background(), &ksp, metav1.CreateOptions{}); err != nil && !metav1errors.IsAlreadyExists(err) {
+		if isAlreadyExists(err) {
+			clusterWatcher.Log.Info("Ksp CRD already exists")
+		}
+		installErr = err
 		clusterWatcher.Log.Warnf("Cannot install Ksp CRD, error=%s", err.Error())
 	}
 	hsp := crds.GetHspCRD()
 	hsp = addOwnership(hsp).(extv1.CustomResourceDefinition)
 	if _, err := clusterWatcher.ExtClient.ApiextensionsV1().CustomResourceDefinitions().Create(context.Background(), &hsp, metav1.CreateOptions{}); err != nil && !metav1errors.IsAlreadyExists(err) {
+		if isAlreadyExists(err) {
+			clusterWatcher.Log.Info("Ksp CRD already exists")
+		}
+		installErr = err
 		clusterWatcher.Log.Warnf("Cannot install Hsp CRD, error=%s", err.Error())
 	}
 	// kubearmor-controller and relay-server deployments with ubi-based images
@@ -336,6 +351,10 @@ func (clusterWatcher *ClusterWatcher) WatchRequiredResources() {
 		addOwnership(controller).(*appsv1.Deployment),
 		addOwnership(relayServer).(*appsv1.Deployment),
 	}
+
+	// kubearmor configmap
+	configmap := addOwnership(deployments.GetKubearmorConfigMap(common.Namespace, common.KubeArmorConfigMapName)).(*corev1.ConfigMap)
+	configmap.Data = common.ConfigMapData
 
 	role := addOwnership(genSnitchRole()).(*rbacv1.ClusterRole)
 	for {
@@ -359,6 +378,7 @@ func (clusterWatcher *ClusterWatcher) WatchRequiredResources() {
 				clusterWatcher.Log.Infof("Creating service account %s", srvAcc.Name)
 				_, err := clusterWatcher.Client.CoreV1().ServiceAccounts(common.Namespace).Create(context.Background(), srvAcc, metav1.CreateOptions{})
 				if err != nil {
+					installErr = err
 					clusterWatcher.Log.Warnf("Cannot create service account %s, error=%s", srvAcc.Name, err.Error())
 				}
 
@@ -371,6 +391,7 @@ func (clusterWatcher *ClusterWatcher) WatchRequiredResources() {
 			clusterWatcher.Log.Infof("Creating role %s", role.Name)
 			_, err := clusterWatcher.Client.RbacV1().ClusterRoles().Create(context.Background(), role, metav1.CreateOptions{})
 			if err != nil {
+				installErr = err
 				clusterWatcher.Log.Warnf("Cannot create cluster role %s, error=%s", role.Name, err.Error())
 			}
 		}
@@ -381,8 +402,20 @@ func (clusterWatcher *ClusterWatcher) WatchRequiredResources() {
 				clusterWatcher.Log.Infof("Creating cluster role binding %s", binding.Name)
 				_, err := clusterWatcher.Client.RbacV1().ClusterRoleBindings().Create(context.Background(), binding, metav1.CreateOptions{})
 				if err != nil {
+					installErr = err
 					clusterWatcher.Log.Warnf("Cannot create cluster role binding %s, error=%s", binding.Name, err.Error())
 				}
+			}
+		}
+
+		//configmap
+		_, err := clusterWatcher.Client.CoreV1().ConfigMaps(common.Namespace).Get(context.Background(), configmap.Name, metav1.GetOptions{})
+		if isNotfound(err) {
+			clusterWatcher.Log.Infof("Creating ConfigMap %s", configmap.Name)
+			_, err := clusterWatcher.Client.CoreV1().ConfigMaps(common.Namespace).Create(context.Background(), configmap, metav1.CreateOptions{})
+			if err != nil {
+				installErr = err
+				clusterWatcher.Log.Warnf("Cannot create configmap %s, error=%s", configmap.Name, err.Error())
 			}
 		}
 
@@ -393,6 +426,7 @@ func (clusterWatcher *ClusterWatcher) WatchRequiredResources() {
 				clusterWatcher.Log.Infof("Creating service %s", svc.Name)
 				_, err := clusterWatcher.Client.CoreV1().Services(common.Namespace).Create(context.Background(), svc, metav1.CreateOptions{})
 				if err != nil {
+					installErr = err
 					clusterWatcher.Log.Warnf("Cannot create service %s, error=%s", svc.Name, err.Error())
 				}
 			}
@@ -404,6 +438,7 @@ func (clusterWatcher *ClusterWatcher) WatchRequiredResources() {
 			clusterWatcher.Log.Infof("Creating secret %s", secret.Name)
 			_, err := clusterWatcher.Client.CoreV1().Secrets(common.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
 			if err != nil {
+				installErr = err
 				clusterWatcher.Log.Warnf("Cannot create secret %s, error=%s", secret.Name, err.Error())
 			} else {
 				RotateTls = true && !FirstRun
@@ -422,6 +457,7 @@ func (clusterWatcher *ClusterWatcher) WatchRequiredResources() {
 				clusterWatcher.Log.Infof("Creating deployment %s", deploy.Name)
 				_, err = clusterWatcher.Client.AppsV1().Deployments(common.Namespace).Create(context.Background(), deploy, metav1.CreateOptions{})
 				if err != nil {
+					installErr = err
 					clusterWatcher.Log.Warnf("Cannot create deployment %s, error=%s", deploy.Name, err.Error())
 				}
 			}
@@ -433,6 +469,7 @@ func (clusterWatcher *ClusterWatcher) WatchRequiredResources() {
 			clusterWatcher.Log.Infof("Creating mutation webhook %s", mutationhook.Name)
 			_, err = clusterWatcher.Client.AdmissionregistrationV1().MutatingWebhookConfigurations().Create(context.Background(), mutationhook, metav1.CreateOptions{})
 			if err != nil {
+				installErr = err
 				clusterWatcher.Log.Warnf("Cannot create mutation webhook %s, error=%s", mutationhook.Name, err.Error())
 			}
 		} else if err == nil {
@@ -444,7 +481,18 @@ func (clusterWatcher *ClusterWatcher) WatchRequiredResources() {
 				}
 			}
 		} else {
+			installErr = err
 			clusterWatcher.Log.Error(err.Error())
+		}
+
+		// update operatingConfigCrd status to Running
+		if common.OperatigConfigCrd != nil {
+			if installErr != nil {
+				installErr = nil
+				go clusterWatcher.UpdateCrdStatus(common.OperatigConfigCrd.Name, common.ERROR, common.INSTALLATION_ERR_MSG)
+			} else {
+				go clusterWatcher.UpdateCrdStatus(common.OperatigConfigCrd.Name, common.RUNNING, common.RUNNING_MSG)
+			}
 		}
 
 		if RotateTls {

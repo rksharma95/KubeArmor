@@ -8,11 +8,34 @@ import (
 	"strings"
 
 	deployments "github.com/kubearmor/KubeArmor/deployments/get"
+	opv1 "github.com/kubearmor/KubeArmor/pkg/KubeArmorOperator/api/operator.kubearmor.com/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/kubernetes"
 )
+
+const (
+	// constants for CRD status
+	CREATED  string = "Created"
+	PENDING  string = "Pending"
+	RUNNING  string = "Running"
+	UPDATING string = "Updating"
+	ERROR    string = "Error"
+
+	// Status Messages
+	CREATED_MSG  string = "Installaltion has been created"
+	PENDING_MSG  string = "Kubearmor Installation is in-progess"
+	RUNNING_MSG  string = "Kubearmor Application is Up and Running"
+	UPDATING_MSG string = "Updating the Application Configuration"
+
+	// Error Messages
+	INSTALLATION_ERR_MSG    string = "Failed to install KubeArmor component(s)"
+	MULTIPLE_CRD_ERR_MSG    string = "There's already a CRD exists to manage KubeArmor"
+	UPDATION_FAILED_ERR_MSG string = "Failed to update KubeArmor configuration"
+)
+
+var OperatigConfigCrd *opv1.Config
 
 var (
 	EnforcerLabel                   string = "kubearmor.io/enforcer"
@@ -25,9 +48,8 @@ var (
 	DeletAction                     string = "DELETE"
 	AddAction                       string = "ADD"
 	Namespace                       string = "kube-system"
-	OperatorNamespace               string = "kube-system"
 	Privileged                      bool   = true
-	OperatorImage                   string = "kubearmor/kubearmor-operator:v1.0.0"
+	OperatorImage                   string = "ttl.sh/kubearmor-operator:24h"
 	KubeArmorServiceAccountName     string = "kubearmor"
 	KubeArmorClusterRoleBindingName string = KubeArmorServiceAccountName
 	KubeArmorSnitchRoleName         string = "kubearmor-snitch"
@@ -37,7 +59,25 @@ var (
 	KubeArmorControllerUbiImage string = "kubearmor/kubearmor-controller:redhat-ubi"
 	KubeArmorUbiImage           string = "kubearmor/kubearmor:redhat-ubi"
 	KubeArmorInitUbiImage       string = "kubearmor/kubearmor-init:redhat-ubi"
+
+	KubeArmorConfigMapName string = "kubearmor-config"
+
+	// ConfigMap Data
+	ConfigGRPC                       string = "gRPC"
+	ConfigVisibility                 string = "visibility"
+	ConfigCluster                    string = "cluster"
+	ConfigDefaultFilePosture         string = "defaultFilePosture"
+	ConfigDefaultCapabilitiesPosture string = "defaultCapabilitiesPosture"
+	ConfigDefaultNetworkPosture      string = "defaultNetworkPosture"
 )
+
+var ConfigMapData = map[string]string{
+	ConfigGRPC:                       "32767",
+	ConfigCluster:                    "default",
+	ConfigDefaultFilePosture:         "audit",
+	ConfigDefaultCapabilitiesPosture: "audit",
+	ConfigDefaultNetworkPosture:      "audit",
+}
 
 var ContainerRuntimeSocketMap = map[string][]string{
 	"docker": {
@@ -212,12 +252,12 @@ func GetOperatorNamespace() string {
 	ns := os.Getenv("KUBEARMOR_OPERATOR_NS")
 
 	if ns == "" {
-		return OperatorNamespace
+		return Namespace
 	}
 
 	return ns
 }
 
 func init() {
-	OperatorNamespace = GetOperatorNamespace()
+	Namespace = GetOperatorNamespace()
 }

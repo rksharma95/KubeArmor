@@ -15,20 +15,30 @@ type ConfigSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of Config. Edit config_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// +kubebuilder:validation:optional
+	DefaultFilePosture PostureType `json:"defaultFilePosture,omitempty"`
+	// +kubebuilder:validation:optional
+	DefaultCapabilitiesPosture PostureType `json:"defaultCapabilitiesPosture,omitempty"`
+	// +kubebuilder:validation:optional
+	DefaultNetworkPosture PostureType `json:"defaultNetworkPosture,omitempty"`
+	// +kubebuilder:validation:optional
+	DefaultVisibility string `json:"defaultVisibility,omitempty"`
 }
 
 // ConfigStatus defines the observed state of Config
 type ConfigStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+	// +kubebuilder:validation:optional
+	Phase string `json:"phase,omitempty"`
+	// +kubebuilder:validation:optional
+	Message string `json:"message,omitempty"`
 }
 
-//+genclient
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-
+// +genclient
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.phase"
 // Config is the Schema for the configs API
 type Config struct {
 	metav1.TypeMeta   `json:",inline"`

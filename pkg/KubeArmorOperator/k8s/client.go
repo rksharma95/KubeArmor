@@ -108,5 +108,9 @@ func NewOpv1Client(log zap.SugaredLogger, kubeconfig string) *opv1client.Clients
 		os.Exit(1)
 	}
 
+	if client == nil {
+		log.Warn("opv1client is nil")
+	}
+
 	return client
 }
