@@ -10,8 +10,8 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-// ConfigSpec defines the desired state of Config
-type ConfigSpec struct {
+// KubeArmorConfigSpec defines the desired state of KubeArmorConfig
+type KubeArmorConfigSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
@@ -25,8 +25,8 @@ type ConfigSpec struct {
 	DefaultVisibility string `json:"defaultVisibility,omitempty"`
 }
 
-// ConfigStatus defines the observed state of Config
-type ConfigStatus struct {
+// KubeArmorConfigStatus defines the observed state of KubeArmorConfig
+type KubeArmorConfigStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 	// +kubebuilder:validation:optional
@@ -39,24 +39,24 @@ type ConfigStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.phase"
-// Config is the Schema for the configs API
-type Config struct {
+// KubeArmorConfig is the Schema for the KubeArmorConfigs API
+type KubeArmorConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   ConfigSpec   `json:"spec,omitempty"`
-	Status ConfigStatus `json:"status,omitempty"`
+	Spec   KubeArmorConfigSpec   `json:"spec,omitempty"`
+	Status KubeArmorConfigStatus `json:"status,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 
-// ConfigList contains a list of Config
-type ConfigList struct {
+// KubeArmorConfigList contains a list of KubeArmorConfig
+type KubeArmorConfigList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []Config `json:"items"`
+	Items           []KubeArmorConfig `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&Config{}, &ConfigList{})
+	SchemeBuilder.Register(&KubeArmorConfig{}, &KubeArmorConfigList{})
 }

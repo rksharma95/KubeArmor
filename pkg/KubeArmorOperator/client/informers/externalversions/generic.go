@@ -40,8 +40,8 @@ func (f *genericInformer) Lister() cache.GenericLister {
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
 	// Group=operator.kubearmor.com, Version=v1
-	case v1.SchemeGroupVersion.WithResource("configs"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Operator().V1().Configs().Informer()}, nil
+	case v1.SchemeGroupVersion.WithResource("kubearmorconfigs"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Operator().V1().KubeArmorConfigs().Informer()}, nil
 
 	}
 

@@ -19,59 +19,59 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 )
 
-// ConfigInformer provides access to a shared informer and lister for
-// Configs.
-type ConfigInformer interface {
+// KubeArmorConfigInformer provides access to a shared informer and lister for
+// KubeArmorConfigs.
+type KubeArmorConfigInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1.ConfigLister
+	Lister() v1.KubeArmorConfigLister
 }
 
-type configInformer struct {
+type kubeArmorConfigInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
 	namespace        string
 }
 
-// NewConfigInformer constructs a new informer for Config type.
+// NewKubeArmorConfigInformer constructs a new informer for KubeArmorConfig type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewConfigInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredConfigInformer(client, namespace, resyncPeriod, indexers, nil)
+func NewKubeArmorConfigInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredKubeArmorConfigInformer(client, namespace, resyncPeriod, indexers, nil)
 }
 
-// NewFilteredConfigInformer constructs a new informer for Config type.
+// NewFilteredKubeArmorConfigInformer constructs a new informer for KubeArmorConfig type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewFilteredConfigInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+func NewFilteredKubeArmorConfigInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.OperatorV1().Configs(namespace).List(context.TODO(), options)
+				return client.OperatorV1().KubeArmorConfigs(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.OperatorV1().Configs(namespace).Watch(context.TODO(), options)
+				return client.OperatorV1().KubeArmorConfigs(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&operatorkubearmorcomv1.Config{},
+		&operatorkubearmorcomv1.KubeArmorConfig{},
 		resyncPeriod,
 		indexers,
 	)
 }
 
-func (f *configInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredConfigInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+func (f *kubeArmorConfigInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewFilteredKubeArmorConfigInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
 }
 
-func (f *configInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&operatorkubearmorcomv1.Config{}, f.defaultInformer)
+func (f *kubeArmorConfigInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&operatorkubearmorcomv1.KubeArmorConfig{}, f.defaultInformer)
 }
 
-func (f *configInformer) Lister() v1.ConfigLister {
-	return v1.NewConfigLister(f.Informer().GetIndexer())
+func (f *kubeArmorConfigInformer) Lister() v1.KubeArmorConfigLister {
+	return v1.NewKubeArmorConfigLister(f.Informer().GetIndexer())
 }

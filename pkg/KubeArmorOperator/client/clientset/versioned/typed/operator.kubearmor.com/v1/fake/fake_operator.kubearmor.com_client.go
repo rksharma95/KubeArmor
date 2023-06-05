@@ -15,8 +15,8 @@ type FakeOperatorV1 struct {
 	*testing.Fake
 }
 
-func (c *FakeOperatorV1) Configs(namespace string) v1.ConfigInterface {
-	return &FakeConfigs{c, namespace}
+func (c *FakeOperatorV1) KubeArmorConfigs(namespace string) v1.KubeArmorConfigInterface {
+	return &FakeKubeArmorConfigs{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate

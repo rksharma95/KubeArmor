@@ -35,7 +35,7 @@ const (
 	UPDATION_FAILED_ERR_MSG string = "Failed to update KubeArmor configuration"
 )
 
-var OperatigConfigCrd *opv1.Config
+var OperatigConfigCrd *opv1.KubeArmorConfig
 
 var (
 	EnforcerLabel                   string = "kubearmor.io/enforcer"
@@ -49,7 +49,7 @@ var (
 	AddAction                       string = "ADD"
 	Namespace                       string = "kube-system"
 	Privileged                      bool   = true
-	OperatorImage                   string = "ttl.sh/kubearmor-operator:24h"
+	OperatorImage                   string = "kubearmor/kubearmor-operator:24h"
 	KubeArmorServiceAccountName     string = "kubearmor"
 	KubeArmorClusterRoleBindingName string = KubeArmorServiceAccountName
 	KubeArmorSnitchRoleName         string = "kubearmor-snitch"

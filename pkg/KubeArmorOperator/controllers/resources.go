@@ -326,20 +326,18 @@ func (clusterWatcher *ClusterWatcher) WatchRequiredResources() {
 	ksp := crds.GetKspCRD()
 	ksp = addOwnership(ksp).(extv1.CustomResourceDefinition)
 	if _, err := clusterWatcher.ExtClient.ApiextensionsV1().CustomResourceDefinitions().Create(context.Background(), &ksp, metav1.CreateOptions{}); err != nil && !metav1errors.IsAlreadyExists(err) {
-		if isAlreadyExists(err) {
-			clusterWatcher.Log.Info("Ksp CRD already exists")
+		if !isAlreadyExists(err) {
+			installErr = err
+			clusterWatcher.Log.Warnf("Cannot install Ksp CRD, error=%s", err.Error())
 		}
-		installErr = err
-		clusterWatcher.Log.Warnf("Cannot install Ksp CRD, error=%s", err.Error())
 	}
 	hsp := crds.GetHspCRD()
 	hsp = addOwnership(hsp).(extv1.CustomResourceDefinition)
 	if _, err := clusterWatcher.ExtClient.ApiextensionsV1().CustomResourceDefinitions().Create(context.Background(), &hsp, metav1.CreateOptions{}); err != nil && !metav1errors.IsAlreadyExists(err) {
-		if isAlreadyExists(err) {
-			clusterWatcher.Log.Info("Ksp CRD already exists")
+		if !isAlreadyExists(err) {
+			installErr = err
+			clusterWatcher.Log.Warnf("Cannot install Hsp CRD, error=%s", err.Error())
 		}
-		installErr = err
-		clusterWatcher.Log.Warnf("Cannot install Hsp CRD, error=%s", err.Error())
 	}
 	// kubearmor-controller and relay-server deployments with ubi-based images
 	controller := deployments.GetKubeArmorControllerDeployment(common.Namespace)

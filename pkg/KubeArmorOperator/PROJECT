@@ -13,7 +13,7 @@ resources:
     namespaced: true
   domain: kubearmor.com
   group: operator
-  kind: Config
+  kind: KubeArmorConfig
   path: KubeArmorOperator/api/v1
   version: v1
 version: "3"

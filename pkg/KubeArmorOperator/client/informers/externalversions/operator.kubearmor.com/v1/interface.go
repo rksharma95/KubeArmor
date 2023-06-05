@@ -11,8 +11,8 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
-	// Configs returns a ConfigInformer.
-	Configs() ConfigInformer
+	// KubeArmorConfigs returns a KubeArmorConfigInformer.
+	KubeArmorConfigs() KubeArmorConfigInformer
 }
 
 type version struct {
@@ -26,7 +26,7 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
 }
 
-// Configs returns a ConfigInformer.
-func (v *version) Configs() ConfigInformer {
-	return &configInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+// KubeArmorConfigs returns a KubeArmorConfigInformer.
+func (v *version) KubeArmorConfigs() KubeArmorConfigInformer {
+	return &kubeArmorConfigInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }

@@ -13,7 +13,7 @@ import (
 
 type OperatorV1Interface interface {
 	RESTClient() rest.Interface
-	ConfigsGetter
+	KubeArmorConfigsGetter
 }
 
 // OperatorV1Client is used to interact with features provided by the operator.kubearmor.com group.
@@ -21,8 +21,8 @@ type OperatorV1Client struct {
 	restClient rest.Interface
 }
 
-func (c *OperatorV1Client) Configs(namespace string) ConfigInterface {
-	return newConfigs(c, namespace)
+func (c *OperatorV1Client) KubeArmorConfigs(namespace string) KubeArmorConfigInterface {
+	return newKubeArmorConfigs(c, namespace)
 }
 
 // NewForConfig creates a new OperatorV1Client for the given config.

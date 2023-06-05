@@ -5,10 +5,10 @@
 
 package v1
 
-// ConfigListerExpansion allows custom methods to be added to
-// ConfigLister.
-type ConfigListerExpansion interface{}
+// KubeArmorConfigListerExpansion allows custom methods to be added to
+// KubeArmorConfigLister.
+type KubeArmorConfigListerExpansion interface{}
 
-// ConfigNamespaceListerExpansion allows custom methods to be added to
-// ConfigNamespaceLister.
-type ConfigNamespaceListerExpansion interface{}
+// KubeArmorConfigNamespaceListerExpansion allows custom methods to be added to
+// KubeArmorConfigNamespaceLister.
+type KubeArmorConfigNamespaceListerExpansion interface{}
