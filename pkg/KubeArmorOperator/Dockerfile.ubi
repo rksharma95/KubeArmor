@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2022 Authors of KubeArmor
+
 FROM redhat/ubi9-minimal as builder
 WORKDIR /app
 # Copy the Go Modules manifests
@@ -17,15 +20,14 @@ ENV PATH=${PATH}:/usr/local/go/bin
 # and so that source changes don't invalidate our downloaded layer
 RUN go mod download
 
-COPY main.go main.go
 COPY cmd cmd
 COPY common common
-COPY controllers controllers
+COPY internal/controller internal/controller
 COPY enforcer enforcer
 COPY k8s k8s
 COPY runtime runtime
 # Build
-RUN CGO_ENABLED=0 GO111MODULE=on go build -a -o kubearmor-operator main.go
+RUN CGO_ENABLED=0 GO111MODULE=on go build -a -o kubearmor-operator cmd/main.go
 RUN ln -s kubearmor-operator snitch
 
 FROM redhat/ubi9-minimal
@@ -45,7 +47,7 @@ RUN groupadd --gid 1000 default \
   && useradd --uid 1000 --gid default --shell /bin/bash --create-home default          
 
 COPY --from=builder /app/kubearmor-operator /kubearmor-operator
-COPY --from=builder /app/snitch /snitch
+RUN ln -s /kubearmor-operator /snitch
 
 USER default
 ENTRYPOINT ["/kubearmor-operator"]

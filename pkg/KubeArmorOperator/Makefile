@@ -52,23 +52,19 @@ vet: ## Run go vet against code.
 
 .PHONY: get
 get: tidy
-	go get
+	go get ./...
 
 .PHONY: tidy
 tidy:
 	go mod tidy
 
-.PHONY: deploy
-deploy: kustomize ## Deploy Operator Deployment, ClusterRole and ServiceAccount objects.
-	$(KUSTOMIZE) build manifest/ | kubectl apply -f -
-
 .PHONY: kubearmor-operator
 kubearmor-operator: get
-	go build -o kubearmor-operator main.go
+	go build -o kubearmor-operator cmd/main.go
 
 .PHONY: snitch
 snitch: get
-	go build -o snitch main.go
+	go build -o snitch cmd/main.go
 
 .PHONY: build
 build: snitch kubearmor-operator
@@ -80,7 +76,7 @@ docker-build: build ## Build docker image with the manager.
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.
 	docker push ${IMG}:${TAG}
-	# docker push ${IMG}:latest
+	docker push ${IMG}:latest
 
 KUSTOMIZE = /usr/local/bin/kustomize
 .PHONY: kustomize
@@ -94,6 +90,26 @@ operator-sdk:
 	curl -LO https://github.com/operator-framework/operator-sdk/releases/latest/download/operator-sdk_linux_amd64
 	chmod +x operator-sdk_linux_amd64
 	sudo mv operator-sdk_linux_amd64 /usr/local/bin/operator-sdk
+
+ifndef ignore-not-found
+  ignore-not-found = false
+endif
+
+.PHONY: install
+install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
+	$(KUSTOMIZE) build config/crd | kubectl apply -f -
+
+.PHONY: uninstall
+uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
+	$(KUSTOMIZE) build config/crd | kubectl delete --ignore-not-found=$(ignore-not-found) -f -	
+
+.PHONY: deploy
+deploy: kustomize ## Deploy Operator Deployment, ClusterRole and ServiceAccount objects.
+	$(KUSTOMIZE) build config/default | kubectl apply -f -
+
+.PHONY: undeploy
+undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
+	$(KUSTOMIZE) build config/default | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
 
 .PHONY: manifests
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.

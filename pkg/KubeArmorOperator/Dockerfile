@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2022 Authors of KubeArmor
+
 FROM docker.io/golang:1.20 as builder
 ARG GOARCH
 ARG GOOS
@@ -13,15 +16,14 @@ RUN go mod download
 
 COPY api api
 COPY client client
-COPY main.go main.go
 COPY cmd cmd
 COPY common common
-COPY controllers controllers
+COPY internal/controller internal/controller
 COPY enforcer enforcer
 COPY k8s k8s
 COPY runtime runtime
 # Build
-RUN CGO_ENABLED=0 GOOS=${GOOS} GOARCH=${GOARCH} GO111MODULE=on go build -a -o kubearmor-operator main.go
+RUN CGO_ENABLED=0 GOOS=${GOOS} GOARCH=${GOARCH} GO111MODULE=on go build -a -o kubearmor-operator cmd/main.go
 RUN ln -s kubearmor-operator snitch
 
 FROM scratch

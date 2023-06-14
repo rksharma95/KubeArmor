@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2022 Authors of KubeArmor
+
 package common
 
 import (
@@ -49,7 +52,7 @@ var (
 	AddAction                       string = "ADD"
 	Namespace                       string = "kube-system"
 	Privileged                      bool   = true
-	OperatorImage                   string = "kubearmor/kubearmor-operator:24h"
+	OperatorImage                   string = "ttl.sh/kubearmor-operator:48h"
 	KubeArmorServiceAccountName     string = "kubearmor"
 	KubeArmorClusterRoleBindingName string = KubeArmorServiceAccountName
 	KubeArmorSnitchRoleName         string = "kubearmor-snitch"

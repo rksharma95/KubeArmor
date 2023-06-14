@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 
 	opv1client "github.com/kubearmor/KubeArmor/pkg/KubeArmorOperator/client/clientset/versioned"
-	"github.com/kubearmor/KubeArmor/pkg/KubeArmorOperator/controllers"
+	controllers "github.com/kubearmor/KubeArmor/pkg/KubeArmorOperator/internal/controller"
 	"github.com/kubearmor/KubeArmor/pkg/KubeArmorOperator/k8s"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
