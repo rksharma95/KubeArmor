@@ -23,22 +23,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func useUbiBasedImage(containers *[]corev1.Container) {
-	for i, img := range *containers {
-		image := strings.Split(img.Image, ":")
-		switch image[0] {
-		case "kubearmor/kubearmor":
-			(*containers)[i].Image = common.KubeArmorUbiImage
-		case "kubearmor/kubearmor-init":
-			(*containers)[i].Image = common.KubeArmorInitUbiImage
-		case "kubearmor/kubearmor-relay-server":
-			(*containers)[i].Image = common.KubeArmorRelayUbiImage
-		case "kubearmor/kubearmor-controller":
-			(*containers)[i].Image = common.KubeArmorControllerUbiImage
-		}
-	}
-}
-
 func generateDaemonset(name, enforcer, runtime, socket, runtimeStorage string) *appsv1.DaemonSet {
 	enforcerVolumes, enforcerVolumeMounts := genEnforcerVolumes(enforcer)
 	runtimeVolumes, runtimeVolumeMounts := genRuntimeVolumes(runtime, socket, runtimeStorage)
@@ -77,9 +61,6 @@ func generateDaemonset(name, enforcer, runtime, socket, runtimeStorage string) *
 		}
 	}
 	daemonset.Spec.Template.Spec.Volumes = vols
-	// use ubi-based images
-	useUbiBasedImage(&daemonset.Spec.Template.Spec.Containers)
-	useUbiBasedImage(&daemonset.Spec.Template.Spec.InitContainers)
 	daemonset.Spec.Template.Spec.InitContainers[0].VolumeMounts = common.CommonVolumesMount
 	daemonset.Spec.Template.Spec.Containers[0].VolumeMounts = volMnts
 	daemonset.Spec.Template.Spec.Containers[0].Args = append(daemonset.Spec.Template.Spec.Containers[0].Args, "-criSocket=unix:///"+strings.ReplaceAll(socket, "_", "/"))
@@ -342,11 +323,9 @@ func (clusterWatcher *ClusterWatcher) WatchRequiredResources() {
 			clusterWatcher.Log.Warnf("Cannot install Hsp CRD, error=%s", err.Error())
 		}
 	}
-	// kubearmor-controller and relay-server deployments with ubi-based images
+	// kubearmor-controller and relay-server deployments
 	controller := deployments.GetKubeArmorControllerDeployment(common.Namespace)
-	useUbiBasedImage(&controller.Spec.Template.Spec.Containers)
 	relayServer := deployments.GetRelayDeployment(common.Namespace)
-	useUbiBasedImage(&relayServer.Spec.Template.Spec.Containers)
 
 	deploys := []*appsv1.Deployment{
 		addOwnership(controller).(*appsv1.Deployment),
@@ -542,7 +521,6 @@ func (clusterWatcher *ClusterWatcher) RotateTlsCerts() {
 		clusterWatcher.Log.Warnf("Cannot create secret %s, error=%s", tmpsecret.Name, err.Error())
 	}
 	tmpdeploy := deployments.GetKubeArmorControllerDeployment(common.Namespace)
-	useUbiBasedImage(&tmpdeploy.Spec.Template.Spec.Containers)
 	tmpdeploy = addOwnership(tmpdeploy).(*appsv1.Deployment)
 	tmpdeploy.Name = tmpdeploy.GetName() + "-" + suffix
 	for i, s := range tmpdeploy.Spec.Template.Spec.Volumes {
