@@ -52,16 +52,10 @@ var (
 	AddAction                       string = "ADD"
 	Namespace                       string = "kube-system"
 	Privileged                      bool   = true
-	OperatorImage                   string = "ttl.sh/kubearmor-operator:48h"
+	OperatorImage                   string = "kubearmor/kubearmor-operator:latest"
 	KubeArmorServiceAccountName     string = "kubearmor"
 	KubeArmorClusterRoleBindingName string = KubeArmorServiceAccountName
 	KubeArmorSnitchRoleName         string = "kubearmor-snitch"
-
-	// redhat ubi-based images
-	KubeArmorRelayUbiImage      string = "kubearmor/kubearmor-relay-server:redhat-ubi"
-	KubeArmorControllerUbiImage string = "kubearmor/kubearmor-controller:redhat-ubi"
-	KubeArmorUbiImage           string = "kubearmor/kubearmor:redhat-ubi"
-	KubeArmorInitUbiImage       string = "kubearmor/kubearmor-init:redhat-ubi"
 
 	KubeArmorConfigMapName string = "kubearmor-config"
 
@@ -92,6 +86,7 @@ var ContainerRuntimeSocketMap = map[string][]string{
 		"/run/k3s/containerd/containerd.sock",
 		"/run/containerd/containerd.sock",
 		"/var/run/containerd/containerd.sock",
+		"/run/dockershim.sock",
 	},
 	"crio": {
 		"/var/run/crio/crio.sock",
@@ -101,6 +96,7 @@ var ContainerRuntimeSocketMap = map[string][]string{
 
 var HostPathDirectory = corev1.HostPathDirectory
 var HostPathSocket = corev1.HostPathSocket
+var HostPathFile = corev1.HostPathFile
 
 var EnforcerVolumesMounts = map[string][]corev1.VolumeMount{
 	"apparmor": {
@@ -190,6 +186,15 @@ var CommonVolumes = []corev1.Volume{
 			},
 		},
 	},
+	{
+		Name: "os-release-path",
+		VolumeSource: corev1.VolumeSource{
+			HostPath: &corev1.HostPathVolumeSource{
+				Path: "/etc/os-release",
+				Type: &HostPathFile,
+			},
+		},
+	},
 }
 
 var CommonVolumesMount = []corev1.VolumeMount{
@@ -204,6 +209,45 @@ var CommonVolumesMount = []corev1.VolumeMount{
 	{
 		Name:      "sys-kernel-debug-path",
 		MountPath: "/sys/kernel/debug",
+	},
+	{
+		Name:      "os-release-path",
+		MountPath: "/media/root/etc/os-release",
+		ReadOnly:  true,
+	},
+}
+
+var KernelHeaderVolumes = []corev1.Volume{
+	{
+		Name: "lib-modules-path",
+		VolumeSource: corev1.VolumeSource{
+			HostPath: &corev1.HostPathVolumeSource{
+				Path: "/lib/modules",
+				Type: &HostPathDirectory,
+			},
+		},
+	},
+	{
+		Name: "usr-src-path",
+		VolumeSource: corev1.VolumeSource{
+			HostPath: &corev1.HostPathVolumeSource{
+				Path: "/usr/src",
+				Type: &HostPathDirectory,
+			},
+		},
+	},
+}
+
+var KernelHeaderVolumesMount = []corev1.VolumeMount{
+	{
+		Name:      "usr-src-path",
+		MountPath: "/usr/src",
+		ReadOnly:  true,
+	},
+	{
+		Name:      "lib-modules-path",
+		MountPath: "/lib/modules",
+		ReadOnly:  true,
 	},
 }
 

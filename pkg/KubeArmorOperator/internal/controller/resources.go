@@ -13,6 +13,7 @@ import (
 	deployments "github.com/kubearmor/KubeArmor/deployments/get"
 	crds "github.com/kubearmor/KubeArmor/pkg/KubeArmorController/crd"
 	"github.com/kubearmor/KubeArmor/pkg/KubeArmorOperator/common"
+	"golang.org/x/mod/semver"
 	v1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -23,18 +24,23 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func generateDaemonset(name, enforcer, runtime, socket, runtimeStorage string) *appsv1.DaemonSet {
+func generateDaemonset(name, enforcer, runtime, socket, runtimeStorage, kernelVersion string) *appsv1.DaemonSet {
 	enforcerVolumes, enforcerVolumeMounts := genEnforcerVolumes(enforcer)
 	runtimeVolumes, runtimeVolumeMounts := genRuntimeVolumes(runtime, socket, runtimeStorage)
 	vols := []corev1.Volume{}
 	volMnts := []corev1.VolumeMount{}
 	vols = append(vols, enforcerVolumes...)
 	vols = append(vols, runtimeVolumes...)
-	vols = append(vols, common.CommonVolumes...)
 	volMnts = append(volMnts, enforcerVolumeMounts...)
 	volMnts = append(volMnts, runtimeVolumeMounts...)
-	volMnts = append(volMnts, common.CommonVolumesMount...)
-
+	commonVols := common.CommonVolumes
+	commonVolMnts := common.CommonVolumesMount
+	if isKernelHeaderMountsRequired(kernelVersion) {
+		commonVols = append(commonVols, common.KernelHeaderVolumes...)
+		commonVolMnts = append(commonVolMnts, common.KernelHeaderVolumesMount...)
+	}
+	vols = append(vols, commonVols...)
+	volMnts = append(volMnts, commonVolMnts...)
 	daemonset := deployments.GenerateDaemonSet("generic", common.Namespace)
 	daemonset.Name = name
 	labels := map[string]string{
@@ -61,12 +67,23 @@ func generateDaemonset(name, enforcer, runtime, socket, runtimeStorage string) *
 		}
 	}
 	daemonset.Spec.Template.Spec.Volumes = vols
-	daemonset.Spec.Template.Spec.InitContainers[0].VolumeMounts = common.CommonVolumesMount
+	daemonset.Spec.Template.Spec.InitContainers[0].VolumeMounts = commonVolMnts
 	daemonset.Spec.Template.Spec.Containers[0].VolumeMounts = volMnts
 	daemonset.Spec.Template.Spec.Containers[0].Args = append(daemonset.Spec.Template.Spec.Containers[0].Args, "-criSocket=unix:///"+strings.ReplaceAll(socket, "_", "/"))
 	daemonset = addOwnership(daemonset).(*appsv1.DaemonSet)
 	fmt.Printf("generated daemonset: %v", daemonset)
 	return daemonset
+}
+
+func isKernelHeaderMountsRequired(version string) bool {
+	target := "v5.2"
+	switch semver.Compare("v"+version, target) {
+	case 1:
+		return false
+	case -1:
+		return true
+	}
+	return false
 }
 
 func genEnforcerVolumes(enforcer string) (vol []corev1.Volume, volMnt []corev1.VolumeMount) {
@@ -195,7 +212,8 @@ func deploySnitch(nodename string, runtime string) *batchv1.Job {
 						Name:  "snitch",
 						Image: common.OperatorImage,
 						Command: []string{
-							"/snitch",
+							"/operator",
+							"snitch",
 						},
 						Args: []string{
 							"--nodename=$(NODE_NAME)",

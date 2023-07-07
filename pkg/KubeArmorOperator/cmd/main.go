@@ -5,21 +5,41 @@ package main
 
 import (
 	"os"
-	"path/filepath"
 
 	operator "github.com/kubearmor/KubeArmor/pkg/KubeArmorOperator/cmd/operator"
 	snitch "github.com/kubearmor/KubeArmor/pkg/KubeArmorOperator/cmd/snitch-cmd"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 )
 
-func main() {
-	var command *cobra.Command
-	binaryName := filepath.Base(os.Args[0])
-	switch binaryName {
-	case "snitch":
-		command = snitch.Cmd
-	case "operator", "kubearmor-operator":
-		command = operator.Cmd
+var Logger *zap.SugaredLogger
+
+var rootCmd = &cobra.Command{
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		log, err := zap.NewProduction()
+		if err != nil {
+			return err
+		}
+		Logger = log.Sugar()
+		return nil
+	},
+	Use:   "operator",
+	Short: "A CLI utility to install kubearmor-operator or snitch on k8s cluster",
+	Long:  "A CLI utility to install kubearmor-operator or snitch on k8s cluster",
+}
+
+func Execute() {
+	if err := rootCmd.Execute(); err != nil {
+		Logger.Error(err)
+		os.Exit(1)
 	}
-	command.Execute()
+}
+
+func main() {
+	Execute()
+}
+
+func init() {
+	rootCmd.AddCommand(snitch.Cmd)
+	rootCmd.AddCommand(operator.Cmd)
 }

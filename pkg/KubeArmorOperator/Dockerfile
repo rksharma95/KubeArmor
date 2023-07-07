@@ -23,10 +23,8 @@ COPY enforcer enforcer
 COPY k8s k8s
 COPY runtime runtime
 # Build
-RUN CGO_ENABLED=0 GOOS=${GOOS} GOARCH=${GOARCH} GO111MODULE=on go build -a -o kubearmor-operator cmd/main.go
-RUN ln -s kubearmor-operator snitch
+RUN CGO_ENABLED=0 GOOS=${GOOS} GOARCH=${GOARCH} GO111MODULE=on go build -a -o operator cmd/main.go
 
 FROM scratch
-COPY --from=builder /app/kubearmor-operator /kubearmor-operator
-COPY --from=builder /app/snitch /snitch
-ENTRYPOINT ["/kubearmor-operator"]
+COPY --from=builder /app/operator /operator
+ENTRYPOINT ["/operator"]

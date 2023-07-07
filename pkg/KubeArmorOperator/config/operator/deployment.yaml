@@ -15,7 +15,10 @@ spec:
       containers:
       - name: operator
         image: kubearmor/kubearmor-operator:latest
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
+        command:
+        - "/operator"
+        - "kubearmor-operator"
         env: 
         - name: KUBEARMOR_OPERATOR_NS
           valueFrom:

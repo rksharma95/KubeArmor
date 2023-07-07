@@ -142,9 +142,9 @@ func (clusterWatcher *ClusterWatcher) WatchNodes() {
 					}
 					clusterWatcher.NodesLock.Unlock()
 					if nodeModified {
-						clusterWatcher.UpdateDaemonsets(common.DeletAction, newNode.Enforcer, newNode.Runtime, newNode.RuntimeSocket, newNode.RuntimeStorage)
+						clusterWatcher.UpdateDaemonsets(common.DeletAction, newNode.Enforcer, newNode.Runtime, newNode.RuntimeSocket, newNode.RuntimeStorage, node.Status.NodeInfo.KernelVersion)
 					}
-					clusterWatcher.UpdateDaemonsets(common.AddAction, newNode.Enforcer, newNode.Runtime, newNode.RuntimeSocket, newNode.RuntimeStorage)
+					clusterWatcher.UpdateDaemonsets(common.AddAction, newNode.Enforcer, newNode.Runtime, newNode.RuntimeSocket, newNode.RuntimeStorage, node.Status.NodeInfo.KernelVersion)
 				}
 			} else {
 				log.Errorf("Cannot convert object to node struct")
@@ -163,7 +163,7 @@ func (clusterWatcher *ClusterWatcher) WatchNodes() {
 					}
 				}
 				clusterWatcher.NodesLock.Unlock()
-				clusterWatcher.UpdateDaemonsets(common.DeletAction, deletedNode.Enforcer, deletedNode.Runtime, deletedNode.RuntimeSocket, deletedNode.RuntimeStorage)
+				clusterWatcher.UpdateDaemonsets(common.DeletAction, deletedNode.Enforcer, deletedNode.Runtime, deletedNode.RuntimeSocket, deletedNode.RuntimeStorage, node.Status.NodeInfo.KernelVersion)
 			}
 		},
 	})
@@ -171,7 +171,7 @@ func (clusterWatcher *ClusterWatcher) WatchNodes() {
 	nodeInformer.Run(wait.NeverStop)
 }
 
-func (clusterWatcher *ClusterWatcher) UpdateDaemonsets(action, enforcer, runtime, socket, runtimeStorage string) {
+func (clusterWatcher *ClusterWatcher) UpdateDaemonsets(action, enforcer, runtime, socket, runtimeStorage, kernelVersion string) {
 	clusterWatcher.Log.Info("updating daemonset")
 	daemonsetName := strings.Join([]string{
 		"kubearmor",
@@ -207,7 +207,7 @@ func (clusterWatcher *ClusterWatcher) UpdateDaemonsets(action, enforcer, runtime
 		}
 	}
 	if newDaemonSet {
-		daemonset := generateDaemonset(daemonsetName, enforcer, runtime, socket, runtimeStorage)
+		daemonset := generateDaemonset(daemonsetName, enforcer, runtime, socket, runtimeStorage, kernelVersion)
 		_, err := clusterWatcher.Client.AppsV1().DaemonSets(common.Namespace).Create(context.Background(), daemonset, v1.CreateOptions{})
 		if err != nil {
 			clusterWatcher.Log.Warnf("Cannot Create daemonset %s, error=%s", daemonsetName, err.Error())
@@ -236,7 +236,7 @@ func (clusterWatcher *ClusterWatcher) WatchConfigCrd() {
 			AddFunc: func(obj interface{}) {
 				configCrdList, err := clusterWatcher.Opv1Client.OperatorV1().KubeArmorConfigs(common.Namespace).List(context.Background(), metav1.ListOptions{})
 				if err != nil {
-					clusterWatcher.Log.Warn("Failed to list Operator Config CRDs")
+					clusterWatcher.Log.Warn("Failed to list Operator Config CRs")
 					return
 				}
 				for _, cfg := range configCrdList.Items {
@@ -327,10 +327,10 @@ func (clusterWatcher *ClusterWatcher) UpdateCrdStatus(cfg, phase, message string
 		return true, nil
 	})
 	if err != nil {
-		clusterWatcher.Log.Errorf("Error updating the ConfigCRD status %s", err)
+		clusterWatcher.Log.Errorf("Error updating the ConfigCR status %s", err)
 		return
 	}
-	clusterWatcher.Log.Info("Config CRD Status Updated Successfully")
+	clusterWatcher.Log.Info("Config CR Status Updated Successfully")
 }
 
 func (clusterWatcher *ClusterWatcher) UpdateKubeArmorConfigMap(cfg *opv1.KubeArmorConfig) {

@@ -7,6 +7,7 @@ require (
 	github.com/kubearmor/KubeArmor/pkg/KubeArmorController v0.0.0-20230529072153-69e6f2fab246
 	github.com/spf13/cobra v1.7.0
 	go.uber.org/zap v1.24.0
+	golang.org/x/mod v0.10.0
 	k8s.io/api v0.27.2
 	k8s.io/apiextensions-apiserver v0.27.2
 	k8s.io/apimachinery v0.27.2

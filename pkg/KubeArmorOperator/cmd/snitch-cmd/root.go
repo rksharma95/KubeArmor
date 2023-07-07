@@ -2,7 +2,7 @@
 // Copyright 2021 Authors of KubeArmor
 
 // Package cmd is the collection of all the subcommands available in kArmor while providing relevant options for the same
-package nitch
+package snitch
 
 import (
 	"context"
@@ -81,7 +81,7 @@ func init() {
 	} else {
 		Cmd.PersistentFlags().StringVar(&KubeConfig, "kubeconfig", "", "Path to the kubeconfig file to use")
 	}
-	Cmd.PersistentFlags().StringVar(&LsmOrder, "lsmorder", "bpf,apparmor,selinux", "lsm preference order to use")
+	Cmd.PersistentFlags().StringVar(&LsmOrder, "lsm", "bpf,apparmor,selinux", "lsm preference order to use")
 	Cmd.PersistentFlags().StringVar(&NodeName, "nodename", "", "node name to label")
 	Cmd.PersistentFlags().StringVar(&PathPrefix, "pathprefix", "/rootfs", "path prefix for runtime search")
 	Cmd.PersistentFlags().StringVar(&Runtime, "runtime", "", "runtime detected by k8s")

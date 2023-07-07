@@ -66,7 +66,7 @@ func init() {
 	} else {
 		Cmd.PersistentFlags().StringVar(&KubeConfig, "kubeconfig", "", "Path to the kubeconfig file to use")
 	}
-	Cmd.PersistentFlags().StringVar(&LsmOrder, "lsmorder", "bpf,apparmor,selinux", "lsm preference order to use")
+	Cmd.PersistentFlags().StringVar(&LsmOrder, "lsm", "bpf,apparmor,selinux", "lsm preference order to use")
 	Cmd.PersistentFlags().StringVar(&PathPrefix, "pathprefix", "/rootfs/", "path prefix for runtime search")
 	Cmd.PersistentFlags().StringVar(&DeploymentName, "deploymentName", "kubearmor-operator", "operator deployment name")
 }
