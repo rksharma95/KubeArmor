@@ -57,6 +57,16 @@ spec:
                 type: string
               defaultVisibility:
                 type: string
+              kubeRbacProxyImage:
+                type: string
+              kubearmorControllerImage:
+                type: string
+              kubearmorImage:
+                type: string
+              kubearmorInitImage:
+                type: string
+              kubearmorRelayImage:
+                type: string
             type: object
           status:
             description: KubeArmorConfigStatus defines the observed state of KubeArmorConfig

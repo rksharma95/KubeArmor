@@ -103,6 +103,7 @@ func (clusterWatcher *ClusterWatcher) WatchNodes() {
 				}
 				if val, ok := node.Labels[common.OsLabel]; ok && val == "linux" && oldRand != node.Labels[common.RandLabel] {
 					newNode := Node{}
+					newNode.Name = node.Name
 					if val, ok := node.Labels[common.EnforcerLabel]; ok {
 						newNode.Enforcer = val
 					}
@@ -128,6 +129,7 @@ func (clusterWatcher *ClusterWatcher) WatchNodes() {
 					}
 					if i == len(clusterWatcher.Nodes) {
 						clusterWatcher.Nodes = append(clusterWatcher.Nodes, newNode)
+						clusterWatcher.Log.Infof("Node %s has been added", newNode.Name)
 					} else {
 						if clusterWatcher.Nodes[i].Arch != newNode.Arch ||
 							clusterWatcher.Nodes[i].Enforcer != newNode.Enforcer ||
@@ -256,6 +258,7 @@ func (clusterWatcher *ClusterWatcher) WatchConfigCrd() {
 					if common.OperatigConfigCrd == nil {
 						common.OperatigConfigCrd = cfg
 						UpdateConfigMapData(&cfg.Spec)
+						UpdateImages(&cfg.Spec)
 						// update status to (Installation) Created
 						go clusterWatcher.UpdateCrdStatus(cfg.Name, common.CREATED, common.CREATED_MSG)
 						go clusterWatcher.WatchRequiredResources()
@@ -275,9 +278,13 @@ func (clusterWatcher *ClusterWatcher) WatchConfigCrd() {
 					// update configmap only if it's operating crd
 					if common.OperatigConfigCrd != nil && cfg.Name == common.OperatigConfigCrd.Name {
 						configChanged := UpdateConfigMapData(&cfg.Spec)
+						imageUpdated := UpdateImages(&cfg.Spec)
 						// return if only status has been updated
-						if !configChanged && cfg.Status != oldObj.(*opv1.KubeArmorConfig).Status {
+						if !configChanged && cfg.Status != oldObj.(*opv1.KubeArmorConfig).Status && len(imageUpdated) < 1 {
 							return
+						}
+						if len(imageUpdated) > 0 {
+							clusterWatcher.UpdateKubeArmorImages(imageUpdated)
 						}
 						if configChanged {
 							// update status to Updating
@@ -302,6 +309,99 @@ func (clusterWatcher *ClusterWatcher) WatchConfigCrd() {
 	if ok := cache.WaitForCacheSync(wait.NeverStop, informer.HasSynced); !ok {
 		clusterWatcher.Log.Warn("Failed to wait for cache sync")
 	}
+}
+
+func (clusterWatcher *ClusterWatcher) UpdateKubeArmorImages(images []string) error {
+	var res error
+	for _, img := range images {
+		switch img {
+		case "kubearmor", "init":
+			dsList, err := clusterWatcher.Client.AppsV1().DaemonSets(common.Namespace).List(context.Background(), v1.ListOptions{
+				LabelSelector: "kubearmor-app=kubearmor",
+			})
+			if err != nil {
+				clusterWatcher.Log.Warnf("Cannot list KubeArmor daemonset(s) error=%s", err.Error())
+				res = err
+			} else {
+				for _, ds := range dsList.Items {
+					ds.Spec.Template.Spec.Containers[0].Image = common.KubearmorImage
+					ds.Spec.Template.Spec.InitContainers[0].Image = common.KubeArmorInitImage
+					_, err = clusterWatcher.Client.AppsV1().DaemonSets(common.Namespace).Update(context.Background(), &ds, v1.UpdateOptions{})
+					if err != nil {
+						clusterWatcher.Log.Warnf("Cannot update daemonset=%s error=%s", ds.Name, err.Error())
+						res = err
+					} else {
+						clusterWatcher.Log.Infof("Updated daemonset=%s", ds.Name)
+					}
+				}
+			}
+		case "relay":
+			relay, err := clusterWatcher.Client.AppsV1().Deployments(common.Namespace).Get(context.Background(), deployments.RelayDeploymentName, v1.GetOptions{})
+			if err != nil {
+				clusterWatcher.Log.Warnf("Cannot get deployment=%s error=%s", deployments.RelayDeploymentName, err.Error())
+				res = err
+			} else {
+				relay.Spec.Template.Spec.Containers[0].Image = common.KubeArmorRelayImage
+				_, err = clusterWatcher.Client.AppsV1().Deployments(common.Namespace).Update(context.Background(), relay, v1.UpdateOptions{})
+				if err != nil {
+					clusterWatcher.Log.Warnf("Cannot update deployment=%s error=%s", deployments.RelayDeploymentName, err.Error())
+					res = err
+				} else {
+					clusterWatcher.Log.Infof("Updated Deployment=%s with image=%s", deployments.RelayDeploymentName, common.KubeArmorRelayImage)
+				}
+			}
+
+		case "controller", "rbac":
+			controller, err := clusterWatcher.Client.AppsV1().Deployments(common.Namespace).Get(context.Background(), deployments.KubeArmorControllerDeploymentName, v1.GetOptions{})
+			if err != nil {
+				clusterWatcher.Log.Warnf("Cannot get deployment=%s error=%s", deployments.KubeArmorControllerDeploymentName, err.Error())
+				res = err
+			} else {
+				containers := &controller.Spec.Template.Spec.Containers
+				for i, container := range *containers {
+					if container.Name == "manager" {
+						(*containers)[i].Image = common.KubeArmorControllerImage
+					} else {
+						(*containers)[i].Image = common.KubeRbacProxyImage
+					}
+				}
+				_, err = clusterWatcher.Client.AppsV1().Deployments(common.Namespace).Update(context.Background(), controller, v1.UpdateOptions{})
+				if err != nil {
+					clusterWatcher.Log.Warnf("Cannot update deployment=%s error=%s", deployments.KubeArmorControllerDeploymentName, err.Error())
+					res = err
+				} else {
+					clusterWatcher.Log.Infof("Updated Deployment=%s", deployments.KubeArmorControllerDeploymentName)
+				}
+			}
+		}
+	}
+
+	return res
+}
+
+func UpdateImages(config *opv1.KubeArmorConfigSpec) []string {
+	updatedImages := []string{}
+	if config.KubeArmorImage != "" && common.KubearmorImage != config.KubeArmorImage {
+		common.KubearmorImage = config.KubeArmorImage
+		updatedImages = append(updatedImages, "kubearmor")
+	}
+	if config.KubeArmorInitImage != "" && common.KubeArmorInitImage != config.KubeArmorInitImage {
+		common.KubeArmorInitImage = config.KubeArmorInitImage
+		updatedImages = append(updatedImages, "init")
+	}
+	if config.KubeArmorRelayImage != "" && common.KubeArmorRelayImage != config.KubeArmorRelayImage {
+		common.KubeArmorRelayImage = config.KubeArmorRelayImage
+		updatedImages = append(updatedImages, "relay")
+	}
+	if config.KubeArmorControllerImage != "" && common.KubeArmorControllerImage != config.KubeArmorControllerImage {
+		common.KubeArmorControllerImage = config.KubeArmorControllerImage
+		updatedImages = append(updatedImages, "controller")
+	}
+	if config.KubeRbacProxyImage != "" && common.KubeRbacProxyImage != config.KubeRbacProxyImage {
+		common.KubeRbacProxyImage = config.KubeRbacProxyImage
+		updatedImages = append(updatedImages, "rbac")
+	}
+	return updatedImages
 }
 
 func (clusterWatcher *ClusterWatcher) UpdateCrdStatus(cfg, phase, message string) {

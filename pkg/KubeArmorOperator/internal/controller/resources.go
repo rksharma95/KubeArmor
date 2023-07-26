@@ -50,7 +50,8 @@ func generateDaemonset(name, enforcer, runtime, socket, runtimeStorage, kernelVe
 		common.SocketLabel:         socket,
 		common.OsLabel:             "linux",
 	}
-	daemonset.Spec.Template.Spec.NodeSelector = labels
+	daemonset.Spec.Template.Spec.NodeSelector = common.CopyStrMap(labels)
+	labels["kubearmor-app"] = "kubearmor"
 	daemonset.Spec.Template.Labels = labels
 	daemonset.Spec.Template.Spec.ServiceAccountName = "kubearmor"
 	daemonset.Spec.Selector = &metav1.LabelSelector{
@@ -70,6 +71,10 @@ func generateDaemonset(name, enforcer, runtime, socket, runtimeStorage, kernelVe
 	daemonset.Spec.Template.Spec.InitContainers[0].VolumeMounts = commonVolMnts
 	daemonset.Spec.Template.Spec.Containers[0].VolumeMounts = volMnts
 	daemonset.Spec.Template.Spec.Containers[0].Args = append(daemonset.Spec.Template.Spec.Containers[0].Args, "-criSocket=unix:///"+strings.ReplaceAll(socket, "_", "/"))
+	// update images
+	daemonset.Spec.Template.Spec.Containers[0].Image = common.KubearmorImage
+	daemonset.Spec.Template.Spec.InitContainers[0].Image = common.KubeArmorInitImage
+
 	daemonset = addOwnership(daemonset).(*appsv1.DaemonSet)
 	fmt.Printf("generated daemonset: %v", daemonset)
 	return daemonset
@@ -307,6 +312,37 @@ func addOwnership(obj interface{}) interface{} {
 	return obj
 }
 
+func (clusterWatcher *ClusterWatcher) AreAllNodesProcessed() bool {
+	processedNodes := 0
+	clusterWatcher.DaemonsetsLock.Lock()
+	clusterWatcher.NodesLock.Lock()
+
+	processedNodes = len(clusterWatcher.Nodes)
+	dsCount := 0
+	for _, ds := range clusterWatcher.Daemonsets {
+		if ds > 0 {
+			dsCount += ds
+		}
+	}
+
+	clusterWatcher.NodesLock.Unlock()
+	clusterWatcher.DaemonsetsLock.Unlock()
+
+	nodes, err := clusterWatcher.Client.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		clusterWatcher.Log.Warnf("Cannot list nodes, error=%s", err.Error())
+		return false
+	}
+	if !(len(nodes.Items) == processedNodes) {
+		return false
+	}
+	kaPodsList, err := clusterWatcher.Client.CoreV1().Pods(common.Namespace).List(context.Background(), metav1.ListOptions{
+		LabelSelector: "kubearmor-app=kubearmor",
+	})
+	return len(kaPodsList.Items) == dsCount
+
+}
+
 func (clusterWatcher *ClusterWatcher) WatchRequiredResources() {
 	var caCert, tlsCrt, tlsKey *bytes.Buffer
 	var kGenErr, err, installErr error
@@ -314,14 +350,31 @@ func (clusterWatcher *ClusterWatcher) WatchRequiredResources() {
 	FirstRun := true
 	srvAccs := []*corev1.ServiceAccount{
 		addOwnership(deployments.GetServiceAccount(common.Namespace)).(*corev1.ServiceAccount),
+		addOwnership(deployments.GetKubeArmorControllerServiceAccount(common.Namespace)).(*corev1.ServiceAccount),
 		addOwnership(genSnitchServiceAccount()).(*corev1.ServiceAccount),
 	}
-	bindings := []*rbacv1.ClusterRoleBinding{
+	clusterRoles := []*rbacv1.ClusterRole{
+		addOwnership(genSnitchRole()).(*rbacv1.ClusterRole),
+		addOwnership(deployments.GetClusterRole()).(*rbacv1.ClusterRole),
+		addOwnership(deployments.GetKubeArmorControllerProxyRole()).(*rbacv1.ClusterRole),
+		addOwnership(deployments.GetKubeArmorControllerClusterRole()).(*rbacv1.ClusterRole),
+	}
+	clusterRoleBindings := []*rbacv1.ClusterRoleBinding{
 		addOwnership(deployments.GetClusterRoleBinding(common.Namespace)).(*rbacv1.ClusterRoleBinding),
+		addOwnership(deployments.GetKubeArmorControllerClusterRoleBinding(common.Namespace)).(*rbacv1.ClusterRoleBinding),
+		addOwnership(deployments.GetKubeArmorControllerProxyRoleBinding(common.Namespace)).(*rbacv1.ClusterRoleBinding),
 		addOwnership(genSnitchRoleBinding()).(*rbacv1.ClusterRoleBinding),
 	}
+	roles := []*rbacv1.Role{
+		addOwnership(deployments.GetKubeArmorControllerLeaderElectionRole(common.Namespace)).(*rbacv1.Role),
+	}
+	roleBindings := []*rbacv1.RoleBinding{
+		addOwnership(deployments.GetKubeArmorControllerLeaderElectionRoleBinding(common.Namespace)).(*rbacv1.RoleBinding),
+	}
+
 	svcs := []*corev1.Service{
-		addOwnership(deployments.GetKubeArmorControllerService(common.Namespace)).(*corev1.Service),
+		addOwnership(deployments.GetKubeArmorControllerMetricsService(common.Namespace)).(*corev1.Service),
+		addOwnership(deployments.GetKubeArmorControllerWebhookService(common.Namespace)).(*corev1.Service),
 		addOwnership(deployments.GetRelayService(common.Namespace)).(*corev1.Service),
 	}
 	// Install CRDs
@@ -345,18 +398,28 @@ func (clusterWatcher *ClusterWatcher) WatchRequiredResources() {
 	controller := deployments.GetKubeArmorControllerDeployment(common.Namespace)
 	relayServer := deployments.GetRelayDeployment(common.Namespace)
 
+	// update images
+	containers := &controller.Spec.Template.Spec.Containers
+	for i, container := range *containers {
+		if container.Name == "manager" {
+			(*containers)[i].Image = common.KubeArmorControllerImage
+		} else {
+			(*containers)[i].Image = common.KubeRbacProxyImage
+		}
+	}
+	relayServer.Spec.Template.Spec.Containers[0].Image = common.KubeArmorRelayImage
+
 	deploys := []*appsv1.Deployment{
 		addOwnership(controller).(*appsv1.Deployment),
 		addOwnership(relayServer).(*appsv1.Deployment),
 	}
 
 	// kubearmor configmap
-	configmap := addOwnership(deployments.GetKubearmorConfigMap(common.Namespace, common.KubeArmorConfigMapName)).(*corev1.ConfigMap)
+	configmap := addOwnership(deployments.GetKubearmorConfigMap(common.Namespace, deployments.KubeArmorConfigMapName)).(*corev1.ConfigMap)
 	configmap.Data = common.ConfigMapData
 
-	role := addOwnership(genSnitchRole()).(*rbacv1.ClusterRole)
 	for {
-		caCert, tlsCrt, tlsKey, kGenErr = common.GeneratePki(common.Namespace, deployments.KubeArmorControllerServiceName)
+		caCert, tlsCrt, tlsKey, kGenErr = common.GeneratePki(common.Namespace, deployments.KubeArmorControllerWebhookServiceName)
 		if kGenErr == nil {
 			break
 		}
@@ -384,17 +447,43 @@ func (clusterWatcher *ClusterWatcher) WatchRequiredResources() {
 		}
 
 		//rbac
-		_, err = clusterWatcher.Client.RbacV1().ClusterRoles().Get(context.Background(), role.Name, metav1.GetOptions{})
-		if isNotfound(err) {
-			clusterWatcher.Log.Infof("Creating role %s", role.Name)
-			_, err := clusterWatcher.Client.RbacV1().ClusterRoles().Create(context.Background(), role, metav1.CreateOptions{})
-			if err != nil {
-				installErr = err
-				clusterWatcher.Log.Warnf("Cannot create cluster role %s, error=%s", role.Name, err.Error())
+		for _, role := range roles {
+			_, err = clusterWatcher.Client.RbacV1().Roles(common.Namespace).Get(context.Background(), role.Name, metav1.GetOptions{})
+			if isNotfound(err) {
+				clusterWatcher.Log.Infof("Creating role %s", role.Name)
+				_, err := clusterWatcher.Client.RbacV1().Roles(common.Namespace).Create(context.Background(), role, metav1.CreateOptions{})
+				if err != nil {
+					installErr = err
+					clusterWatcher.Log.Warnf("Cannot create role %s, error=%s", role.Name, err.Error())
+				}
 			}
 		}
 
-		for _, binding := range bindings {
+		for _, binding := range roleBindings {
+			_, err = clusterWatcher.Client.RbacV1().RoleBindings(common.Namespace).Get(context.Background(), binding.Name, metav1.GetOptions{})
+			if isNotfound(err) {
+				clusterWatcher.Log.Infof("Creating role binding %s", binding.Name)
+				_, err := clusterWatcher.Client.RbacV1().RoleBindings(common.Namespace).Create(context.Background(), binding, metav1.CreateOptions{})
+				if err != nil {
+					installErr = err
+					clusterWatcher.Log.Warnf("Cannot create role binding %s, error=%s", binding.Name, err.Error())
+				}
+			}
+		}
+
+		for _, clusterRole := range clusterRoles {
+			_, err = clusterWatcher.Client.RbacV1().ClusterRoles().Get(context.Background(), clusterRole.Name, metav1.GetOptions{})
+			if isNotfound(err) {
+				clusterWatcher.Log.Infof("Creating cluster role %s", clusterRole.Name)
+				_, err := clusterWatcher.Client.RbacV1().ClusterRoles().Create(context.Background(), clusterRole, metav1.CreateOptions{})
+				if err != nil {
+					installErr = err
+					clusterWatcher.Log.Warnf("Cannot create cluster role %s, error=%s", clusterRole.Name, err.Error())
+				}
+			}
+		}
+
+		for _, binding := range clusterRoleBindings {
 			_, err = clusterWatcher.Client.RbacV1().ClusterRoleBindings().Get(context.Background(), binding.Name, metav1.GetOptions{})
 			if isNotfound(err) {
 				clusterWatcher.Log.Infof("Creating cluster role binding %s", binding.Name)
@@ -488,8 +577,10 @@ func (clusterWatcher *ClusterWatcher) WatchRequiredResources() {
 			if installErr != nil {
 				installErr = nil
 				go clusterWatcher.UpdateCrdStatus(common.OperatigConfigCrd.Name, common.ERROR, common.INSTALLATION_ERR_MSG)
-			} else {
+			} else if clusterWatcher.AreAllNodesProcessed() {
 				go clusterWatcher.UpdateCrdStatus(common.OperatigConfigCrd.Name, common.RUNNING, common.RUNNING_MSG)
+			} else {
+				go clusterWatcher.UpdateCrdStatus(common.OperatigConfigCrd.Name, common.PENDING, common.PENDING_MSG)
 			}
 		}
 
@@ -522,7 +613,7 @@ func (clusterWatcher *ClusterWatcher) RotateTlsCerts() {
 		clusterWatcher.Log.Infof("Cannot find a suffix, err=%s, retrying in 3 seconds...", err.Error())
 		time.Sleep(3 * time.Second)
 	}
-	serviceName := deployments.KubeArmorControllerServiceName + "-" + suffix
+	serviceName := deployments.KubeArmorControllerWebhookServiceName + "-" + suffix
 	for {
 		caCert, tlsCrt, tlsKey, err = common.GeneratePki(common.Namespace, serviceName)
 		if err == nil {
@@ -560,7 +651,7 @@ func (clusterWatcher *ClusterWatcher) RotateTlsCerts() {
 
 	time.Sleep(10 * time.Second)
 
-	tmpservice := deployments.GetKubeArmorControllerService(common.Namespace)
+	tmpservice := deployments.GetKubeArmorControllerWebhookService(common.Namespace)
 	tmpservice = addOwnership(tmpservice).(*corev1.Service)
 	tmpservice.Name = serviceName
 	tmpservice.Spec.Selector = selectLabels
@@ -576,7 +667,7 @@ func (clusterWatcher *ClusterWatcher) RotateTlsCerts() {
 		clusterWatcher.Log.Warnf("Cannot create mutation webhook %s, error=%s", tmpmutation.Name, err.Error())
 	}
 	clusterWatcher.Client.AdmissionregistrationV1().MutatingWebhookConfigurations().Delete(context.Background(), mutationName, metav1.DeleteOptions{})
-	caCert, tlsCrt, tlsKey, _ = common.GeneratePki(common.Namespace, deployments.KubeArmorControllerServiceName)
+	caCert, tlsCrt, tlsKey, _ = common.GeneratePki(common.Namespace, deployments.KubeArmorControllerWebhookServiceName)
 	secret := deployments.GetKubeArmorControllerTLSSecret(common.Namespace, caCert.String(), tlsCrt.String(), tlsKey.String())
 	secret = addOwnership(secret).(*corev1.Secret)
 	clusterWatcher.Client.CoreV1().Secrets(common.Namespace).Update(context.Background(), secret, metav1.UpdateOptions{})

@@ -23,6 +23,16 @@ type KubeArmorConfigSpec struct {
 	DefaultNetworkPosture PostureType `json:"defaultNetworkPosture,omitempty"`
 	// +kubebuilder:validation:optional
 	DefaultVisibility string `json:"defaultVisibility,omitempty"`
+	// +kubebuilder:validation:optional
+	KubeArmorImage string `json:"kubearmorImage,omitempty"`
+	// +kubebuilder:validation:optional
+	KubeArmorInitImage string `json:"kubearmorInitImage,omitempty"`
+	// +kubebuilder:validation:optional
+	KubeArmorRelayImage string `json:"kubearmorRelayImage,omitempty"`
+	// +kubebuilder:validation:optional
+	KubeArmorControllerImage string `json:"kubearmorControllerImage,omitempty"`
+	// +kubebuilder:validation:optional
+	KubeRbacProxyImage string `json:"kubeRbacProxyImage,omitempty"`
 }
 
 // KubeArmorConfigStatus defines the observed state of KubeArmorConfig

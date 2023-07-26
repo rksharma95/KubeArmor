@@ -52,12 +52,12 @@ var (
 	AddAction                       string = "ADD"
 	Namespace                       string = "kube-system"
 	Privileged                      bool   = true
-	OperatorImage                   string = "kubearmor/kubearmor-operator:latest"
+	OperatorImage                   string = "ttl.sh/kubearmor-operator:48h"
 	KubeArmorServiceAccountName     string = "kubearmor"
 	KubeArmorClusterRoleBindingName string = KubeArmorServiceAccountName
 	KubeArmorSnitchRoleName         string = "kubearmor-snitch"
 
-	KubeArmorConfigMapName string = "kubearmor-config"
+	// KubeArmorConfigMapName string = "kubearmor-config"
 
 	// ConfigMap Data
 	ConfigGRPC                       string = "gRPC"
@@ -66,6 +66,13 @@ var (
 	ConfigDefaultFilePosture         string = "defaultFilePosture"
 	ConfigDefaultCapabilitiesPosture string = "defaultCapabilitiesPosture"
 	ConfigDefaultNetworkPosture      string = "defaultNetworkPosture"
+
+	// Images
+	KubearmorImage           string = "kubearmor/kubearmor:stable"
+	KubeArmorInitImage       string = "kubearmor/kubearmor-init:stable"
+	KubeArmorRelayImage      string = "kubearmor/kubearmor-relay-server:latest"
+	KubeArmorControllerImage string = "kubearmor/kubearmor-controller:latest"
+	KubeRbacProxyImage       string = "gcr.io/kubebuilder/kube-rbac-proxy:v0.12.0"
 )
 
 var ConfigMapData = map[string]string{
@@ -74,6 +81,7 @@ var ConfigMapData = map[string]string{
 	ConfigDefaultFilePosture:         "audit",
 	ConfigDefaultCapabilitiesPosture: "audit",
 	ConfigDefaultNetworkPosture:      "audit",
+	ConfigVisibility:                 "process,file,network",
 }
 
 var ContainerRuntimeSocketMap = map[string][]string{
@@ -256,30 +264,6 @@ func GetFreeRandSuffix(c *kubernetes.Clientset, namespace string) (suffix string
 	for {
 		suffix = rand.String(5)
 		found = false
-		if _, err = c.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(context.Background(), deployments.AnnotationsControllerServiceName+"-"+suffix, metav1.GetOptions{}); err != nil {
-			if !strings.Contains(err.Error(), "not found") {
-				return "", err
-			}
-		} else {
-			found = true
-		}
-
-		if _, err = c.CoreV1().Services(namespace).Get(context.Background(), deployments.AnnotationsControllerServiceName+"-"+suffix, metav1.GetOptions{}); err != nil {
-			if !strings.Contains(err.Error(), "not found") {
-				return "", err
-			}
-		} else {
-			found = true
-		}
-
-		if _, err = c.AppsV1().Deployments(namespace).Get(context.Background(), deployments.AnnotationsControllerDeploymentName+"-"+suffix, metav1.GetOptions{}); err != nil {
-			if !strings.Contains(err.Error(), "not found") {
-				return "", err
-			}
-		} else {
-			found = true
-		}
-
 		if _, err = c.CoreV1().Secrets(namespace).Get(context.Background(), deployments.KubeArmorControllerSecretName+"-"+suffix, metav1.GetOptions{}); err != nil {
 			if !strings.Contains(err.Error(), "not found") {
 				return "", err
@@ -303,6 +287,14 @@ func GetOperatorNamespace() string {
 	}
 
 	return ns
+}
+
+func CopyStrMap(src map[string]string) map[string]string {
+	newMap := make(map[string]string)
+	for key, value := range src {
+		newMap[key] = value
+	}
+	return newMap
 }
 
 func init() {
