@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	probe "github.com/daemon1024/bpflsmprobe/probe"
 	"go.uber.org/zap"
 	"k8s.io/kubectl/pkg/util/slice"
 )
@@ -19,6 +20,7 @@ func GetAvailableLsms() []string {
 
 // DetectEnforcer: detect the enforcer on the node
 func DetectEnforcer(lsmOrder []string, PathPrefix string, log zap.SugaredLogger) string {
+	supportedLsms := []string{}
 	lsm := []byte{}
 	lsmPath := PathPrefix + "/sys/kernel/security/lsm"
 
@@ -26,14 +28,26 @@ func DetectEnforcer(lsmOrder []string, PathPrefix string, log zap.SugaredLogger)
 		lsm, err = os.ReadFile(lsmPath)
 		if err != nil {
 			log.Info("Failed to read /sys/kernel/security/lsm " + err.Error())
-			return "NA"
+			goto probeBPFLSM
 		}
 	}
 
-	enforcer := string(lsm)
-	log.Infof("/sys/kernel/security/lsm : %s", enforcer)
+	supportedLsms = strings.Split(string(lsm), ",")
 
-	return selectLsm(lsmOrder, GetAvailableLsms(), strings.Split(enforcer, ","))
+probeBPFLSM:
+	if !slice.ContainsString(supportedLsms, "bpf", nil) {
+		err := probe.CheckBPFLSMSupport()
+		if err == nil {
+			supportedLsms = append(supportedLsms, "bpf")
+		} else {
+			log.Warnf("BPF LSM not supported %s", err.Error())
+		}
+	}
+
+	log.Infof("/sys/kernel/security/lsm : %s", string(lsm))
+	log.Infof("Supported LSMs %s", strings.Join(supportedLsms, ","))
+
+	return selectLsm(lsmOrder, GetAvailableLsms(), supportedLsms)
 }
 
 // selectLsm Function

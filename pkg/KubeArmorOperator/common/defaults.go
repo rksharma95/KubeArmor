@@ -52,7 +52,8 @@ var (
 	AddAction                       string = "ADD"
 	Namespace                       string = "kube-system"
 	Privileged                      bool   = true
-	OperatorImage                   string = "ttl.sh/kubearmor-operator:48h"
+	OperatorName                    string = "kubearmor-operator"
+	OperatorImage                   string = "kubearmor/kubearmor:latest"
 	KubeArmorServiceAccountName     string = "kubearmor"
 	KubeArmorClusterRoleBindingName string = KubeArmorServiceAccountName
 	KubeArmorSnitchRoleName         string = "kubearmor-snitch"
