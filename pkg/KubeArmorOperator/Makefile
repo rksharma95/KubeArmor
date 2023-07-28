@@ -9,6 +9,8 @@ IMG ?= kubearmor/kubearmor-operator
 TAG ?= v0.1
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
+# Target platforms for build
+PLATFORM ?= "linux/amd64,linux/arm64/v8"
 
 BUNDLE_PKG ?= kubearmor-operator
 BUNDLE_VER ?= latest
@@ -77,6 +79,9 @@ docker-build: build ## Build docker image with the manager.
 docker-push: ## Push docker image with the manager.
 	docker push ${IMG}:${TAG}
 	docker push ${IMG}:latest
+
+docker-buildx: build
+	docker buildx build --platform ${PLATFORM} --push -t ${IMG}:${TAG} .
 
 KUSTOMIZE = /usr/local/bin/kustomize
 .PHONY: kustomize
