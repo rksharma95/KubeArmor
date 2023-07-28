@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kubearmor/KubeArmor/pkg/KubeArmorController/informer"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -18,8 +17,7 @@ import (
 
 type PodRefresherReconciler struct {
 	client.Client
-	Scheme  *runtime.Scheme
-	Cluster *informer.Cluster
+	Scheme *runtime.Scheme
 }
 
 // +kubebuilder:rbac:groups="",resources=pods,verbs=get;watch;list;create;update;delete
@@ -34,13 +32,7 @@ func (r *PodRefresherReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	log.Info("Watching for blocked pods")
 	poddeleted := false
 	for _, pod := range podList.Items {
-		if pod.Spec.NodeName == "" {
-			continue
-		}
-		r.Cluster.ClusterLock.Lock()
-		enforcer := r.Cluster.Nodes[pod.Spec.NodeName]
-		r.Cluster.ClusterLock.Unlock()
-		if strings.Contains(pod.Status.Message, "Cannot enforce AppArmor") && enforcer == "apparmor" {
+		if strings.Contains(pod.Status.Message, "Cannot enforce AppArmor") {
 			// the pod is managed by a controller (e.g: replicaset)
 			if pod.OwnerReferences != nil && len(pod.OwnerReferences) != 0 {
 				log.Info("Deleting pod " + pod.Name + "in namespace " + pod.Namespace + " as it is managed")

@@ -26,20 +26,8 @@ type PodAnnotator struct {
 
 const k8sVisibility = "process,file,network,capabilities"
 const appArmorAnnotation = "container.apparmor.security.beta.kubernetes.io/"
-const KubeArmorRestartedAnnotation = "kubearmor.io/restarted"
-const KubeArmorForceAppArmorAnnotation = "kubearmor.io/force-apparmor"
 
 // +kubebuilder:webhook:path=/mutate-pods,mutating=true,failurePolicy=Ignore,groups="",resources=pods,verbs=create;update,versions=v1,name=annotation.kubearmor.com,admissionReviewVersions=v1,sideEffects=NoneOnDryRun
-
-func hasBeenRestarted(lables map[string]string) bool {
-	_, ok := lables[KubeArmorRestartedAnnotation]
-	return ok
-}
-
-func apparmorIsForced(lables map[string]string) bool {
-	_, ok := lables[KubeArmorForceAppArmorAnnotation]
-	return ok
-}
 
 // Handle Pod Annotation
 func (a *PodAnnotator) Handle(ctx context.Context, req admission.Request) admission.Response {
@@ -70,18 +58,10 @@ func (a *PodAnnotator) Handle(ctx context.Context, req admission.Request) admiss
 
 	// == LSM == //
 
-	forced := apparmorIsForced(pod.Annotations)
-	restarted := hasBeenRestarted(pod.Annotations)
-	if a.Enforcer == "" || a.Enforcer == "SELinux" || (restarted && !forced) {
+	if a.Enforcer == "" || a.Enforcer == "SELinux" {
 		pod.Annotations["kubearmor-policy"] = "audited"
-	} else if a.Enforcer == "AppArmor" || forced {
+	} else if a.Enforcer == "AppArmor" {
 		appArmorAnnotator(pod)
-	}
-	if forced {
-		delete(pod.Annotations, KubeArmorForceAppArmorAnnotation)
-	}
-	if restarted {
-		delete(pod.Annotations, KubeArmorRestartedAnnotation)
 	}
 
 	// == Exception == //
