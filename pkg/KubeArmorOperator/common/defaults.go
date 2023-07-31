@@ -53,7 +53,7 @@ var (
 	Namespace                       string = "kube-system"
 	Privileged                      bool   = true
 	OperatorName                    string = "kubearmor-operator"
-	OperatorImage                   string = "kubearmor/kubearmor:latest"
+	OperatorImage                   string = "kubearmor/kubearmor-operator:latest"
 	KubeArmorServiceAccountName     string = "kubearmor"
 	KubeArmorClusterRoleBindingName string = KubeArmorServiceAccountName
 	KubeArmorSnitchRoleName         string = "kubearmor-snitch"

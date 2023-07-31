@@ -72,7 +72,7 @@ snitch: get
 build: snitch kubearmor-operator
 
 .PHONY: docker-build
-docker-build: build ## Build docker image with the manager.
+docker-build: ## Build docker image with the manager.
 	docker build -t ${IMG}:${TAG} -t ${IMG}:latest .
 
 .PHONY: docker-push

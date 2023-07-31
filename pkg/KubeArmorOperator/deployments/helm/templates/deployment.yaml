@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ .Values.kubearmorOperator.name }}
-  namespace: {{ .Values.kubearmorOperator.name }}
+  namespace: {{ .Release.Namespace }}
   labels:
     kubearmor-app: {{ .Values.kubearmorOperator.name }}
 spec:

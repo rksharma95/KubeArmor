@@ -243,6 +243,15 @@ func deploySnitch(nodename string, runtime string) *batchv1.Job {
 								ReadOnly:  true,
 							},
 						},
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Add: []corev1.Capability{
+									"IPC_LOCK",
+									"SYS_ADMIN",
+									"SYS_RESOURCE",
+								},
+							},
+						},
 					},
 				},
 				NodeName:           nodename,
