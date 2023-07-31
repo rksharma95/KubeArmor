@@ -10,6 +10,16 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+// ImageSpec defines the image specifications
+type ImageSpec struct {
+	// +kubebuilder:validation:optional
+	Image string `json:"image,omitempty"`
+	// +kubebuilder:validation:optional
+	// +kubebuilder:validation:Enum=Always;IfNotPresent;Never
+	// +kubebuilder:default:=Always
+	ImagePullPolicy string `json:"imagePullPolicy,omitempty"`
+}
+
 // KubeArmorConfigSpec defines the desired state of KubeArmorConfig
 type KubeArmorConfigSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
@@ -24,15 +34,15 @@ type KubeArmorConfigSpec struct {
 	// +kubebuilder:validation:optional
 	DefaultVisibility string `json:"defaultVisibility,omitempty"`
 	// +kubebuilder:validation:optional
-	KubeArmorImage string `json:"kubearmorImage,omitempty"`
+	KubeArmorImage ImageSpec `json:"kubearmorImage,omitempty"`
 	// +kubebuilder:validation:optional
-	KubeArmorInitImage string `json:"kubearmorInitImage,omitempty"`
+	KubeArmorInitImage ImageSpec `json:"kubearmorInitImage,omitempty"`
 	// +kubebuilder:validation:optional
-	KubeArmorRelayImage string `json:"kubearmorRelayImage,omitempty"`
+	KubeArmorRelayImage ImageSpec `json:"kubearmorRelayImage,omitempty"`
 	// +kubebuilder:validation:optional
-	KubeArmorControllerImage string `json:"kubearmorControllerImage,omitempty"`
+	KubeArmorControllerImage ImageSpec `json:"kubearmorControllerImage,omitempty"`
 	// +kubebuilder:validation:optional
-	KubeRbacProxyImage string `json:"kubeRbacProxyImage,omitempty"`
+	KubeRbacProxyImage ImageSpec `json:"kubeRbacProxyImage,omitempty"`
 }
 
 // KubeArmorConfigStatus defines the observed state of KubeArmorConfig

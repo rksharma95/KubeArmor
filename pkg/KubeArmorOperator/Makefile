@@ -119,7 +119,9 @@ undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/confi
 .PHONY: manifests
 manifests: controller-gen kustomize## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	go mod tidy; $(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	rm -r deployments/helm/crds/* && cp config/crd/bases/* deployments/helm/crds/	
 	$(KUSTOMIZE) build config/default | tee deployments/operator.yaml
+	
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	go mod tidy; $(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
@@ -142,7 +144,7 @@ client/gen:
 
 .PHONY: bundle
 bundle: operator-sdk
-	${OPERATOR_SDK} generate bundle --version ${BUNDLE_VER} --input-dir ./manifest --output-dir ./bundle --package ${BUNDLE_PKG}
+	${OPERATOR_SDK} generate bundle --version ${BUNDLE_VER} --input-dir ./config --output-dir ./bundle --package ${BUNDLE_PKG}
 
 .PHONY: clean
 clean:

@@ -72,8 +72,10 @@ func generateDaemonset(name, enforcer, runtime, socket, runtimeStorage, kernelVe
 	daemonset.Spec.Template.Spec.Containers[0].VolumeMounts = volMnts
 	daemonset.Spec.Template.Spec.Containers[0].Args = append(daemonset.Spec.Template.Spec.Containers[0].Args, "-criSocket=unix:///"+strings.ReplaceAll(socket, "_", "/"))
 	// update images
-	daemonset.Spec.Template.Spec.Containers[0].Image = common.KubearmorImage
+	daemonset.Spec.Template.Spec.Containers[0].Image = common.KubeArmorImage
+	daemonset.Spec.Template.Spec.Containers[0].ImagePullPolicy = corev1.PullPolicy(common.KubeArmorImagePullPolicy)
 	daemonset.Spec.Template.Spec.InitContainers[0].Image = common.KubeArmorInitImage
+	daemonset.Spec.Template.Spec.InitContainers[0].ImagePullPolicy = corev1.PullPolicy(common.KubeArmorInitImagePullPolicy)
 
 	daemonset = addOwnership(daemonset).(*appsv1.DaemonSet)
 	fmt.Printf("generated daemonset: %v", daemonset)
@@ -403,12 +405,14 @@ func (clusterWatcher *ClusterWatcher) WatchRequiredResources() {
 	for i, container := range *containers {
 		if container.Name == "manager" {
 			(*containers)[i].Image = common.KubeArmorControllerImage
+			(*containers)[i].ImagePullPolicy = corev1.PullPolicy(common.KubeArmorControllerImagePullPolicy)
 		} else {
 			(*containers)[i].Image = common.KubeRbacProxyImage
+			(*containers)[i].ImagePullPolicy = corev1.PullPolicy(common.KubeRbacProxyImagePullPolicy)
 		}
 	}
 	relayServer.Spec.Template.Spec.Containers[0].Image = common.KubeArmorRelayImage
-
+	relayServer.Spec.Template.Spec.Containers[0].ImagePullPolicy = corev1.PullPolicy(common.KubeArmorRelayImagePullPolicy)
 	deploys := []*appsv1.Deployment{
 		addOwnership(controller).(*appsv1.Deployment),
 		addOwnership(relayServer).(*appsv1.Deployment),

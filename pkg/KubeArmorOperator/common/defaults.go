@@ -69,11 +69,16 @@ var (
 	ConfigDefaultNetworkPosture      string = "defaultNetworkPosture"
 
 	// Images
-	KubearmorImage           string = "kubearmor/kubearmor:stable"
-	KubeArmorInitImage       string = "kubearmor/kubearmor-init:stable"
-	KubeArmorRelayImage      string = "kubearmor/kubearmor-relay-server:latest"
-	KubeArmorControllerImage string = "kubearmor/kubearmor-controller:latest"
-	KubeRbacProxyImage       string = "gcr.io/kubebuilder/kube-rbac-proxy:v0.12.0"
+	KubeArmorImage                     string = "kubearmor/kubearmor:stable"
+	KubeArmorImagePullPolicy           string = "Always"
+	KubeArmorInitImage                 string = "kubearmor/kubearmor-init:stable"
+	KubeArmorInitImagePullPolicy       string = "Always"
+	KubeArmorRelayImage                string = "kubearmor/kubearmor-relay-server:latest"
+	KubeArmorRelayImagePullPolicy      string = "Always"
+	KubeArmorControllerImage           string = "kubearmor/kubearmor-controller:latest"
+	KubeArmorControllerImagePullPolicy string = "Always"
+	KubeRbacProxyImage                 string = "gcr.io/kubebuilder/kube-rbac-proxy:v0.12.0"
+	KubeRbacProxyImagePullPolicy       string = "Always"
 )
 
 var ConfigMapData = map[string]string{

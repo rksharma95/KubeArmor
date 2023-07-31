@@ -325,8 +325,10 @@ func (clusterWatcher *ClusterWatcher) UpdateKubeArmorImages(images []string) err
 				res = err
 			} else {
 				for _, ds := range dsList.Items {
-					ds.Spec.Template.Spec.Containers[0].Image = common.KubearmorImage
+					ds.Spec.Template.Spec.Containers[0].Image = common.KubeArmorImage
+					ds.Spec.Template.Spec.Containers[0].ImagePullPolicy = corev1.PullPolicy(common.KubeArmorInitImagePullPolicy)
 					ds.Spec.Template.Spec.InitContainers[0].Image = common.KubeArmorInitImage
+					ds.Spec.Template.Spec.InitContainers[0].ImagePullPolicy = corev1.PullPolicy(common.KubeArmorInitImagePullPolicy)
 					_, err = clusterWatcher.Client.AppsV1().DaemonSets(common.Namespace).Update(context.Background(), &ds, v1.UpdateOptions{})
 					if err != nil {
 						clusterWatcher.Log.Warnf("Cannot update daemonset=%s error=%s", ds.Name, err.Error())
@@ -343,6 +345,7 @@ func (clusterWatcher *ClusterWatcher) UpdateKubeArmorImages(images []string) err
 				res = err
 			} else {
 				relay.Spec.Template.Spec.Containers[0].Image = common.KubeArmorRelayImage
+				relay.Spec.Template.Spec.Containers[0].ImagePullPolicy = corev1.PullPolicy(common.KubeArmorRelayImagePullPolicy)
 				_, err = clusterWatcher.Client.AppsV1().Deployments(common.Namespace).Update(context.Background(), relay, v1.UpdateOptions{})
 				if err != nil {
 					clusterWatcher.Log.Warnf("Cannot update deployment=%s error=%s", deployments.RelayDeploymentName, err.Error())
@@ -362,6 +365,7 @@ func (clusterWatcher *ClusterWatcher) UpdateKubeArmorImages(images []string) err
 				for i, container := range *containers {
 					if container.Name == "manager" {
 						(*containers)[i].Image = common.KubeArmorControllerImage
+						(*containers)[i].ImagePullPolicy = corev1.PullPolicy(common.KubeArmorControllerImagePullPolicy)
 					} else {
 						(*containers)[i].Image = common.KubeRbacProxyImage
 					}
@@ -380,26 +384,39 @@ func (clusterWatcher *ClusterWatcher) UpdateKubeArmorImages(images []string) err
 	return res
 }
 
+func UpdateIfDefinedAndUpdated(common *string, in string) bool {
+	if in != "" && in != *common {
+		*common = in
+		return true
+	}
+	return false
+}
+
 func UpdateImages(config *opv1.KubeArmorConfigSpec) []string {
 	updatedImages := []string{}
-	if config.KubeArmorImage != "" && common.KubearmorImage != config.KubeArmorImage {
-		common.KubearmorImage = config.KubeArmorImage
+	// if kubearmor image or imagePullPolicy got updated
+	if UpdateIfDefinedAndUpdated(&common.KubeArmorImage, config.KubeArmorImage.Image) ||
+		UpdateIfDefinedAndUpdated(&common.KubeArmorImagePullPolicy, config.KubeArmorImage.ImagePullPolicy) {
 		updatedImages = append(updatedImages, "kubearmor")
 	}
-	if config.KubeArmorInitImage != "" && common.KubeArmorInitImage != config.KubeArmorInitImage {
-		common.KubeArmorInitImage = config.KubeArmorInitImage
+	// if kubearmor-init image or imagePullPolicy got updated
+	if UpdateIfDefinedAndUpdated(&common.KubeArmorInitImage, config.KubeArmorInitImage.Image) ||
+		UpdateIfDefinedAndUpdated(&common.KubeArmorInitImagePullPolicy, config.KubeArmorInitImage.ImagePullPolicy) {
 		updatedImages = append(updatedImages, "init")
 	}
-	if config.KubeArmorRelayImage != "" && common.KubeArmorRelayImage != config.KubeArmorRelayImage {
-		common.KubeArmorRelayImage = config.KubeArmorRelayImage
+	// kubearmor-relay image or imagePullPolicy got updated
+	if UpdateIfDefinedAndUpdated(&common.KubeArmorRelayImage, config.KubeArmorRelayImage.Image) ||
+		UpdateIfDefinedAndUpdated(&common.KubeArmorRelayImagePullPolicy, config.KubeArmorRelayImage.ImagePullPolicy) {
 		updatedImages = append(updatedImages, "relay")
 	}
-	if config.KubeArmorControllerImage != "" && common.KubeArmorControllerImage != config.KubeArmorControllerImage {
-		common.KubeArmorControllerImage = config.KubeArmorControllerImage
+	// if kubearmor-controller image or imagePullPolicy got updated
+	if UpdateIfDefinedAndUpdated(&common.KubeArmorControllerImage, config.KubeArmorControllerImage.Image) ||
+		UpdateIfDefinedAndUpdated(&common.KubeArmorControllerImagePullPolicy, config.KubeArmorControllerImage.ImagePullPolicy) {
 		updatedImages = append(updatedImages, "controller")
 	}
-	if config.KubeRbacProxyImage != "" && common.KubeRbacProxyImage != config.KubeRbacProxyImage {
-		common.KubeRbacProxyImage = config.KubeRbacProxyImage
+	// if kube-rbac-proxy image or imagePullPolicy got updated
+	if UpdateIfDefinedAndUpdated(&common.KubeRbacProxyImage, config.KubeRbacProxyImage.Image) ||
+		UpdateIfDefinedAndUpdated(&common.KubeRbacProxyImagePullPolicy, config.KubeRbacProxyImage.ImagePullPolicy) {
 		updatedImages = append(updatedImages, "rbac")
 	}
 	return updatedImages

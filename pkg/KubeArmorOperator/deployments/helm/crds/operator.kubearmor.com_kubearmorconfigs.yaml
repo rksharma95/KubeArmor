@@ -58,15 +58,70 @@ spec:
               defaultVisibility:
                 type: string
               kubeRbacProxyImage:
-                type: string
+                description: ImageSpec defines the image specifications
+                properties:
+                  image:
+                    type: string
+                  imagePullPolicy:
+                    default: Always
+                    enum:
+                    - Always
+                    - IfNotPresent
+                    - Never
+                    type: string
+                type: object
               kubearmorControllerImage:
-                type: string
+                description: ImageSpec defines the image specifications
+                properties:
+                  image:
+                    type: string
+                  imagePullPolicy:
+                    default: Always
+                    enum:
+                    - Always
+                    - IfNotPresent
+                    - Never
+                    type: string
+                type: object
               kubearmorImage:
-                type: string
+                description: ImageSpec defines the image specifications
+                properties:
+                  image:
+                    type: string
+                  imagePullPolicy:
+                    default: Always
+                    enum:
+                    - Always
+                    - IfNotPresent
+                    - Never
+                    type: string
+                type: object
               kubearmorInitImage:
-                type: string
+                description: ImageSpec defines the image specifications
+                properties:
+                  image:
+                    type: string
+                  imagePullPolicy:
+                    default: Always
+                    enum:
+                    - Always
+                    - IfNotPresent
+                    - Never
+                    type: string
+                type: object
               kubearmorRelayImage:
-                type: string
+                description: ImageSpec defines the image specifications
+                properties:
+                  image:
+                    type: string
+                  imagePullPolicy:
+                    default: Always
+                    enum:
+                    - Always
+                    - IfNotPresent
+                    - Never
+                    type: string
+                type: object
             type: object
           status:
             description: KubeArmorConfigStatus defines the observed state of KubeArmorConfig
