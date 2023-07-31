@@ -233,7 +233,7 @@ func deploySnitch(nodename string, runtime string) *batchv1.Job {
 								}},
 							},
 						},
-						ImagePullPolicy: corev1.PullAlways,
+						ImagePullPolicy: corev1.PullIfNotPresent,
 						VolumeMounts: []corev1.VolumeMount{
 							{
 								Name:      "rootfs",
