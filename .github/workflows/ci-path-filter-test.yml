@@ -70,16 +70,16 @@ jobs:
                 echo "kubearmor-controller package is not updated"
             fi
             echo ${{ needs.check.outputs.controller }}
-  main-branch:
+  not-main-branch:
     name: Check if it's not a main branch
     needs: check
     if: ${{ github.ref }} != 'refs/heads/main'
     runs-on: ubuntu-20.04
     steps:
 
-    - name: main branch
+    - name: not main branch
       run: |
-        echo "main branch"
+        echo "not main branch"
   kubearmor:
     name: check if kubearmor pkg got updated.
     needs: check
@@ -89,4 +89,24 @@ jobs:
 
     - name: update kubearmor
       run: |
-        echo "kubearmor pkg updated"               
+        echo "kubearmor pkg updated"
+  kubearmor-and-not-main-branch:
+    name: check if kubearmor pkg got updated and pushed on non-main-branch.
+    needs: check
+    if: needs.check.outputs.kubearmor == 'true' && ${{ github.ref }} != 'refs/heads/main'
+    runs-on: ubuntu-20.04
+    steps:
+
+    - name: update kubearmor on non-main-branch
+      run: |
+        echo "kubearmor pkg updated on non-main-branch"
+  my-repo-and-kubearmor-on-not-main-branch:
+    name: check if kubearmor pkg got updated or pushed on non-main-branch on my repo itself.
+    needs: check
+    if: github.repository == 'rksharma95/kubearmor' && (needs.check.outputs.kubearmor == 'true' || ${{ github.ref }} != 'refs/heads/main')
+    runs-on: ubuntu-20.04
+    steps:
+
+    - name: update kubearmor on non-main-branch
+      run: |
+        echo "kubearmor pkg updated on non-main-branch"
