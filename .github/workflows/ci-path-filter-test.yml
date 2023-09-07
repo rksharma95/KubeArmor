@@ -1,0 +1,86 @@
+name: ci-test-path-filter
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "main"
+      - "v*"
+      - "test-ci"
+
+    paths:
+      - "KubeArmor/**"
+      - "protobuf/**"
+      - ".github/workflows/ci-path-filter-test.yml"
+      - "pkg/**"
+      - "!STABLE-RELEASE"
+
+  create:
+    branches:
+      - "v*"
+
+jobs:
+  check:
+    name: Check what pkg were updated
+    if: github.repository == 'rksharma95/kubearmor'
+    runs-on: ubuntu-20.04
+    timeout-minutes: 5
+    outputs:
+      kubearmor: ${{ steps.filter.outputs.kubearmor}}
+      controller: ${{ steps.filter.outputs.controller }}
+    steps:
+    - uses: actions/checkout@v3
+    - uses: dorny/paths-filter@v2
+      id: filter
+      with:
+        filters: |
+          kubearmor:
+            - "KubeArmor/**"
+            - "protobuf/**"
+          controller:
+            - 'pkg/KubeArmorController/**'
+
+  check-filter:
+    name: Create KubeArmor latest release
+    needs: check
+    runs-on: ubuntu-20.04
+    steps:
+
+      - name: Check if ref is not main
+        run: |
+            if [ ${{ github.ref }} != 'refs/heads/main' ]; then
+                echo "ref is not main"
+            else
+                echo "ref is main"
+            fi        
+
+      - name: Check if kubearmor pkg got updated
+        run: |
+            if [ needs.check.outputs.kubearmor == 'true' ]; then
+                echo "kubearmor package got updated"
+            else
+                echo "kubearmor package is not updated"
+            fi 
+            echo ${{ needs.check.outputs.kubearmor }}
+      - name: Check if kubearmor-controller pkg got updated
+        run: |
+            if [ needs.check.outputs.controller == 'true' ]; then
+                echo "kubearmor-conttroller package got updated"
+            else
+                echo "kubearmor-controller package is not updated"
+            fi
+            echo ${{ needs.check.outputs.controller }}
+  kubearmor:
+    name: Create KubeArmor latest release
+    needs: check
+    if: github.repository == 'rksharma95/kubearmor' && (needs.check.outputs.kubearmor == 'true' || ${{ github.ref }} == 'refs/heads/main')
+    runs-on: ubuntu-20.04
+    steps:
+
+    - name: deploy kubearmor
+      run: |
+        if [ github.repository eq 'rksharma95/kubearmor' -a (needs.check.outputs.kubearmor eq 'true' -o ${{ github.ref }} eq 'refs/heads/main') ]; then
+            echo "kubearmor deployed"
+        else
+            echo "kubearmor deployment failed"
+        fi        
