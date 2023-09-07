@@ -41,7 +41,7 @@ jobs:
             - 'pkg/KubeArmorController/**'
 
   check-filter:
-    name: Create KubeArmor latest release
+    name: Run Path Filter
     needs: check
     runs-on: ubuntu-20.04
     steps:
@@ -70,13 +70,23 @@ jobs:
                 echo "kubearmor-controller package is not updated"
             fi
             echo ${{ needs.check.outputs.controller }}
-  kubearmor:
-    name: Create KubeArmor latest release
+  main-branch:
+    name: Check if it's not a main branch
     needs: check
-    if: (github.repository == 'rksharma95/kubearmor') && (needs.check.outputs.kubearmor == 'true' || ${{ github.ref }} == 'refs/heads/main')
+    if: ${{ github.ref }} != 'refs/heads/main'
     runs-on: ubuntu-20.04
     steps:
 
-    - name: deploy kubearmor
+    - name: main branch
       run: |
-        echo "kubearmor deployed"       
+        echo "main branch"
+  kubearmor:
+    name: check if kubearmor pkg got updated.
+    needs: check
+    if: needs.check.outputs.kubearmor == 'true'
+    runs-on: ubuntu-20.04
+    steps:
+
+    - name: update kubearmor
+      run: |
+        echo "kubearmor pkg updated"               
