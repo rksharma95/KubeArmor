@@ -80,6 +80,18 @@ jobs:
     - name: not main branch
       run: |
         echo "not main branch"
+
+  test-ci-branch:
+    name: Check if it's test-ci branch
+    needs: check
+    if: ${{ github.ref }} == 'refs/heads/test-ci'
+    runs-on: ubuntu-20.04
+    steps:
+
+    - name: test-ci branch
+      run: |
+        echo "test-ci branch" 
+
   kubearmor:
     name: check if kubearmor pkg got updated.
     needs: check
@@ -90,6 +102,7 @@ jobs:
     - name: update kubearmor
       run: |
         echo "kubearmor pkg updated"
+
   kubearmor-and-not-main-branch:
     name: check if kubearmor pkg got updated and pushed on non-main-branch.
     needs: check
@@ -100,6 +113,7 @@ jobs:
     - name: update kubearmor on non-main-branch
       run: |
         echo "kubearmor pkg updated on non-main-branch"
+
   my-repo-and-kubearmor-on-not-main-branch:
     name: check if kubearmor pkg got updated or pushed on non-main-branch on my repo itself.
     needs: check
