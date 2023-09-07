@@ -73,14 +73,10 @@ jobs:
   kubearmor:
     name: Create KubeArmor latest release
     needs: check
-    if: github.repository == 'rksharma95/kubearmor' && (needs.check.outputs.kubearmor == 'true' || ${{ github.ref }} == 'refs/heads/main')
+    if: (github.repository == 'rksharma95/kubearmor') && (needs.check.outputs.kubearmor == 'true' || ${{ github.ref }} == 'refs/heads/main')
     runs-on: ubuntu-20.04
     steps:
 
     - name: deploy kubearmor
       run: |
-        if [ github.repository eq 'rksharma95/kubearmor' -a (needs.check.outputs.kubearmor eq 'true' -o ${{ github.ref }} eq 'refs/heads/main') ]; then
-            echo "kubearmor deployed"
-        else
-            echo "kubearmor deployment failed"
-        fi        
+        echo "kubearmor deployed"       
