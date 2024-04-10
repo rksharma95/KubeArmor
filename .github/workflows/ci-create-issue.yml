@@ -1,0 +1,33 @@
+name: Issue From CI
+on:
+  push:
+    branches: ["test-gh-action"]
+
+jobs:
+  create_issue:
+    name: Create issue
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Create issue
+        run: |
+          new_issue_url=$(gh issue create \
+            --title "$TITLE" \
+            --assignee "$ASSIGNEES" \
+            --label "$LABELS" \
+            --body "$BODY")
+        env:
+          GH_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TITLE: Team sync
+          ASSIGNEES: rksharma95
+          LABELS: "help wanted"
+          BODY: |
+            ### Agenda
+
+            - [ ] Task 1
+            - [ ] Task 2
+
+            ### Discussion Points
+            Add things to discuss below
