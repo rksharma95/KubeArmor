@@ -2,6 +2,8 @@ name: Issue From CI
 on:
   push:
     branches: ["test-gh-action"]
+  pull_request:
+    branches: [main]
 
 jobs:
   create_issue:
@@ -21,7 +23,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
           GH_REPO: ${{ github.repository }}
           TITLE: Team sync
-          ASSIGNEES: rksharma95
+          ASSIGNEES: kubearmor/triagers
           LABELS: "help wanted"
           BODY: |
             ### Agenda
