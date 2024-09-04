@@ -12,7 +12,7 @@ kubearmorRelay:
     # kubearmor-init image repo
     repository: kubearmor/kubearmor-relay-server
     # kubearmor-init image tag
-    tag: latest
+    tag: ""
   # kubearmor-init imagePullPolicy
   imagePullPolicy: Always
 
@@ -21,7 +21,7 @@ kubearmorInit:
     # kubearmor-init image repo
     repository: kubearmor/kubearmor-init
     # kubearmor-init image tag
-    tag: stable
+    tag: v1.4.0
   # kubearmor-init imagePullPolicy
   imagePullPolicy: Always
 
@@ -42,7 +42,7 @@ kubearmorController:
     # kubearmor-controller image repo
     repository: kubearmor/kubearmor-controller
     # kubearmor-controller image tag
-    tag: latest
+    tag: v1.4.0
   mutation:
     # kubearmor-controller failure policy
     failurePolicy: Ignore
