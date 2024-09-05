@@ -1,15 +1,85 @@
+autoDeploy: false
+# operator will deploy pinned images for each application
+imagePinning: false
+# == pinned images ==
+# solves very specific use-case of deploying KubeArmor
+# on marketplaces, in-general kubearmorconfig is recommended
+# to set image references
+oci_meta:
+  # assing as registry/repo
+  repo: kubearmor
+  images:
+    kubearmor:
+      image: kubearmor
+      tag: stable
+    kubearmorInit:
+      image: kubearmor-init
+      tag: stable
+    kubearmorRelay:
+      image: kubearmor-relay-server
+      tag: latest
+    kubearmorController:
+      image: kubearmor-controller
+      tag: latest
+    kubearmorSnitch:
+      image: kubearmor-snitch
+      tag: latest
+    kubearmorOperator:
+      image: kubearmor-operator
+      tag: latest
+    kubeRbacProxy:
+      image: kube-rbac-proxy
+      tag: v0.15.0 # if changed, change version in ../../Makefile as well
+snitch:
+  name: kubearmor-snitch
+  image:
+    repository: kubearmor/kubearmor-snitch
+    tag: v1.4.0
+  imagePullPolicy: IfNotPresent
+  lsmOrder: "bpf,apparmor,selinux"
+helm:
+  # repository: https://kubearmor.github.io/charts / embed
+  # chart: kubearmor-operator
+  # version: v1.3.8
+  repository: "embed"
+  version: "v1.4.0"
+  directory: ""
+  # chartref/release name/
+  chart: "kubearmor"
+  rollbackOnFailure: false
+  skipCRD: false
+# in case if image pinning is disabled
 kubearmorOperator:
   name: kubearmor-operator
   image:
     repository: kubearmor/kubearmor-operator
-    tag: latest
+    tag: v1.4.0
   imagePullPolicy: IfNotPresent
-  capabilities:
-    add:
-    - SYS_ADMIN
-    - SYS_RESOURCE
-    - IPC_LOCK
-    - CAP_DAC_OVERRIDE
-    - CAP_DAC_READ_SEARCH
-    drop:
-    - ALL
+  #   imagePullSecrets:
+  #   - name: secretName
+  imagePullSecrets: []
+  # https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+  tolerations: []
+  # https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/
+  priorityClassName: ""
+kubearmorConfig:
+  kubearmorConfigMap:
+    defaultCapabilitiesPosture: audit
+    defaultFilePosture: audit
+    defaultNetworkPosture: audit
+    defaultVisibility: process,network
+    enableStdOutLogs: false
+    enableStdOutAlerts: false
+    enableStdOutMsgs: false
+    seccompEnabled: true
+    alertThrottling: true
+    maxAlertPerSec: 10
+    throttleSec: 30
+# DO NOT CHANGE THIS VALUES 
+# changing these values will require code changes with the operator
+# these secret names should match with the secrets managed by the operator
+tlsSecrets:
+  kubearmorCa: kubearmor-ca
+  kubearmorClient: kubearmor-client-certs
+  relayServer: kubearmor-relay-server-certs
+  controllerWebhook: kubearmor-controller-webhook-server-cert
