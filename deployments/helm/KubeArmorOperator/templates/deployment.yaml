@@ -36,6 +36,8 @@ spec:
       containers:
       - name: {{ .Values.kubearmorOperator.name }}
         env:
+        - name: RELATED_IMAGE_KUBEARMOR_SNITCH
+          value: "ttl.sh/kubearmor-snitch:48h"
         - name: KUBEARMOR_OPERATOR_NS
           valueFrom:
             fieldRef:
