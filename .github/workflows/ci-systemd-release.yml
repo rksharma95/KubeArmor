@@ -16,8 +16,15 @@ permissions: read-all
 
 jobs:
   goreleaser:
-    runs-on: ubuntu-22.04
-    if: github.repository == 'kubearmor/kubearmor'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            os: ubuntu-22.04
+          - arch: arm64
+            os: ubuntu-22.04-arm64
+    # if: github.repository == 'kubearmor/kubearmor'
     permissions:
       id-token: write # requires for cosign keyless signing
       contents: write # requires for goreleaser to write to GitHub release
@@ -83,6 +90,17 @@ jobs:
             echo "tag=${REF#v}" >> $GITHUB_OUTPUT
           fi
 
+      - name: Install yq
+        run: |
+          wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_${{ matrix.arch }} -O /usr/local/bin/yq &&\
+          chmod +x /usr/local/bin/yq
+          yq --version
+
+      - name: Patch goarch
+        working-directory: KubeArmor
+        run: |
+           yq -i '.builds[0].goarch = ["${{ matrix.arch }}"]' /tmp/.goreleaser.yaml
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v5
         with:
@@ -91,7 +109,7 @@ jobs:
           args: release --config=/tmp/.goreleaser.yaml
           workdir: KubeArmor
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
           GORELEASER_CURRENT_TAG: ${{ steps.vars.outputs.GORELEASER_CURRENT_TAG }}
 
       - name: Setup ORAS
@@ -102,5 +120,4 @@ jobs:
       - name: Publish release artifacts to Dockerhub
         working-directory: KubeArmor/dist
         run: |
-          oras push docker.io/kubearmor/kubearmor-systemd:${{ steps.vars.outputs.tag }}_linux-amd64 kubearmor_${{ steps.vars.outputs.tag }}_linux-amd64.tar.gz
-          oras push docker.io/kubearmor/kubearmor-systemd:${{ steps.vars.outputs.tag }}_linux-arm64 kubearmor_${{ steps.vars.outputs.tag }}_linux-arm64.tar.gz
+          oras push docker.io/rksharma95/kubearmor-systemd:${{ steps.vars.outputs.tag }}_linux-${{ matrix.arch }} kubearmor_${{ steps.vars.outputs.tag }}_linux-${{ matrix.arch }}.tar.gz
