@@ -20,6 +20,9 @@ release:
   mode: replace
   make_latest: false
 
+checksum:
+  name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Arch }}_checksums.txt"
+
 signs:
   - cmd: cosign
     certificate: '${artifact}.cert'
