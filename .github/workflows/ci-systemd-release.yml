@@ -112,6 +112,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
           GORELEASER_CURRENT_TAG: ${{ steps.vars.outputs.GORELEASER_CURRENT_TAG }}
+          ARCH: ${{ matrix.arch }}
 
       - name: Setup ORAS
         uses: oras-project/setup-oras@v1
