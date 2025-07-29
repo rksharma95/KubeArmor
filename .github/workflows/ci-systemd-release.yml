@@ -23,7 +23,7 @@ jobs:
           - arch: amd64
             os: ubuntu-22.04
           - arch: arm64
-            os: ubuntu-22.04-arm64
+            os: ubuntu-22.04-arm
     # if: github.repository == 'kubearmor/kubearmor'
     permissions:
       id-token: write # requires for cosign keyless signing
