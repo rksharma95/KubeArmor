@@ -5,8 +5,6 @@ builds:
     id: kubearmor
     goos:
       - linux
-    goarch:
-      - amd64
     env:
       - CGO_ENABLED=0
     ldflags:
@@ -22,7 +20,7 @@ release:
 
 # to handle checksum name conflict
 checksum:
-  name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Env.ARCH }}_checksums.txt"
+  name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Env.GOARCH }}_checksums.txt"
 
 signs:
   - cmd: cosign
