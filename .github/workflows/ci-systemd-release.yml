@@ -104,17 +104,6 @@ jobs:
             git checkout "${RELEASE_TAG}"
           fi
 
-      - name: Install yq
-        run: |
-          wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_${{ matrix.arch }} -O /usr/local/bin/yq &&\
-          chmod +x /usr/local/bin/yq
-          yq --version
-
-      - name: Patch goarch
-        working-directory: KubeArmor
-        run: |
-           yq -i '.builds[0].goarch = ["${{ matrix.arch }}"]' /tmp/.goreleaser.yaml
-
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v5
         with:

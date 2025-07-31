@@ -5,8 +5,6 @@ builds:
     id: kubearmor
     goos:
       - linux
-    goarch:
-      - amd64
     env:
       - CGO_ENABLED=0
     ldflags:
