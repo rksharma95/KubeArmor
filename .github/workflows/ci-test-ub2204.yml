@@ -1,0 +1,113 @@
+name: ci-test-controllers
+
+on:
+  workflow_dispatch:
+  push: 
+    branches:
+      - "debug*"
+    paths:
+      - ".github/workflows/ci-test-ub2204.yml"
+
+# Declare default permissions as read only.
+permissions: read-all
+
+jobs:
+  kubearmor-test:
+    name: Test KubeArmor
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    env:
+      RUNTIME: "containerd"
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+
+      - name: Setup a Kubernetes environment
+        run: ./.github/workflows/install-k3s.sh
+
+      - name: Install the latest LLVM toolchain
+        if: steps.filter.outputs.kubearmor == 'true'
+        run: ./.github/workflows/install-llvm.sh
+
+      - name: Compile libbpf
+        if: steps.filter.outputs.kubearmor == 'true'
+        run: ./.github/workflows/install-libbpf.sh
+
+      - name: Install KubeArmor stable using Helm
+        timeout-minutes: 7
+        run: |
+          helm repo add kubearmor https://kubearmor.github.io/charts
+          helm repo update kubearmor
+          helm upgrade --install kubearmor-operator kubearmor/kubearmor-operator -n kubearmor --create-namespace --set autoDeploy=true
+          kubectl wait --for=condition=ready --timeout=5m -n kubearmor pod -l kubearmor-app=kubearmor-operator
+          kubectl get pods -A
+
+          kubectl wait -n kubearmor --timeout=5m --for=jsonpath='{.status.phase}'=Running kubearmorconfigs/kubearmor-default
+          
+          while [ ! "$(kubectl wait --timeout=5s --for=condition=ready pod -l kubearmor-app,kubearmor-app!=kubearmor-snitch -n kubearmor >/dev/null 2>&1; echo $?)" -eq 0 ]; do
+            kubectl rollout status --timeout=5m deployment -n kubearmor -l kubearmor-app,kubearmor-app!=kubearmor-controller -n kubearmor
+            kubectl rollout status --timeout=5m daemonset -l kubearmor-app=kubearmor -n kubearmor
+            kubectl rollout status --timeout=5m deployment -n kubearmor -l kubearmor-app=kubearmor-controller -n kubearmor
+            kubectl get pods -A
+          done  
+
+      - name: Deploy multiubuntu deployment
+        run: |
+          kubectl apply -f multiubuntu-deployment.yaml
+          kubectl rollout status --timeout=5m deployment ubuntu-1-deployment -n multiubuntu
+        working-directory: ./examples/multiubuntu
+
+      - name: Apply KSP
+        run: |
+          kubectl apply -f k8s-workload-policy.yaml
+          sleep 5
+        working-directory: ./examples/multiubuntu/security-policies
+
+      - name: Execute hostname in ubuntu pod with ksp present
+        run: |
+          POD_NAME=$(kubectl get pod -n multiubuntu -l container=ubuntu-1 -o name)
+          echo "Executing 'hostname' inside pod: $POD_NAME"
+          RESULT=$(kubectl exec $POD_NAME -n multiubuntu -- sh -c "/bin/hostname" 2>&1 || true)
+          echo "Command result: $RESULT"
+
+          if [[ "$RESULT" == *"Permission denied"* ]]; then
+            echo "Permission Denied, test passed"
+          else
+            echo "no Permission Denied, test failed"
+          fi
+
+      - name: Delete KSP
+        run: |
+          kubectl delete -f k8s-workload-policy.yaml
+          sleep 5
+        working-directory: ./examples/multiubuntu/security-policies
+
+      - name: Execute hostname in ubuntu pod without ksp present
+        run: |
+          POD_NAME=$(kubectl get pod -n multiubuntu -l container=ubuntu-1 -o name)
+          echo "Executing 'hostname' inside pod: $POD_NAME"
+          RESULT=$(kubectl exec $POD_NAME -n multiubuntu -- sh -c "/bin/hostname" 2>&1 || true)
+          echo "Command result: $RESULT"
+
+          if [[ "$RESULT" == *"Permission denied"* ]]; then
+            echo "Permission Denied, test failed"
+          else
+            echo "no Permission Denied, test passed"
+          fi
+
+      - name: Get karmor sysdump
+        if: ${{ failure() }}
+        run: |
+          kubectl describe pod -n kubearmor -l kubearmor-app=kubearmor
+          curl -sfL http://get.kubearmor.io/ | sudo sh -s -- -b /usr/local/bin
+          mkdir -p /tmp/kubearmor/ && cd /tmp/kubearmor && karmor sysdump
+
+      - name: Archive log artifacts
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: kubearmor.logs
+          path: |
+            /tmp/kubearmor/
+            /tmp/kubearmor.*

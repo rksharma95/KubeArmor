@@ -1,0 +1,53 @@
+apiVersion: security.kubearmor.com/v1
+kind: KubeArmorPolicy
+metadata:
+  name: audit-and-block
+  namespace: multiubuntu
+spec:
+  process:
+    matchPaths:
+      - path: /bin/ls
+        action: Audit
+        message: "Auditing /bin/ls execution"
+        severity: 8
+      - path: /bin/hostname
+        action: Block
+        message: "Blocking /bin/hostname execution"
+        severity: 5
+  file:
+    matchDirectories:
+      - dir: /usr/bin/
+        readOnly: true
+        recursive: true
+        action: Audit
+        message: "Auditing /bin/ directory"
+        severity: 3
+      - dir: /sbin/
+        readOnly: true
+        recursive: true
+        action: Block
+        message: "Blocking write action in /sbin/ directory"
+        severity: 3
+  network:
+    matchProtocols:
+      - fromSource:
+          - path: /bin/ping
+        protocol: icmp
+        action: Audit
+        message: "Auditing Ping Network Operation"
+        severity: 1
+      - fromSource:
+          - path: /usr/bin/curl
+        protocol: tcp
+        action: Block
+        message: "Blocking curl network operation"
+        severity: 1
+  selector:
+    matchLabels:
+      container: ubuntu-1
+  tags:
+    - CIS
+    - FIGHT
+    - MITRE
+    - NIST
+    - PCI_DSS
