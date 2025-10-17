@@ -14,7 +14,14 @@ permissions: read-all
 jobs:
   kubearmor-test:
     name: Test KubeArmor
-    runs-on: ubuntu-22.04
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            os: ubuntu-22.04
+          - arch: amd64
+            os: ubuntu-latest
     timeout-minutes: 30
     env:
       RUNTIME: "containerd"
