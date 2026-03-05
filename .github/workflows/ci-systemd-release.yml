@@ -24,7 +24,7 @@ jobs:
             os: ubuntu-22.04
           - arch: arm64
             os: ubuntu-22.04-arm
-    if: github.repository == 'kubearmor/kubearmor'
+    if: github.repository == 'rksharma95/kubearmor'
     permissions:
       id-token: write # requires for cosign keyless signing
       contents: write # requires for goreleaser to write to GitHub release
@@ -135,4 +135,4 @@ jobs:
       - name: Publish release artifacts to Dockerhub
         working-directory: KubeArmor/dist
         run: |
-          oras push docker.io/kubearmor/kubearmor-systemd:${{ steps.vars.outputs.tag }}_linux-${{ matrix.arch }} kubearmor_${{ steps.vars.outputs.tag }}_linux-${{ matrix.arch }}.tar.gz
+          oras push docker.io/rksharma95/kubearmor-systemd:${{ steps.vars.outputs.tag }}_linux-${{ matrix.arch }} kubearmor_${{ steps.vars.outputs.tag }}_linux-${{ matrix.arch }}.tar.gz
